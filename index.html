@@ -1,2237 +1,1046 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SENTINEL — Sistema de Monitoramento CFTV</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;400;500;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet" />
-  <style>
-    /* ============================================================
-       VARIÁVEIS E RESET
-    ============================================================ */
-    :root {
-      --bg-void:      #040608;
-      --bg-deep:      #080c10;
-      --bg-panel:     #0d1117;
-      --bg-card:      #111820;
-      --bg-hover:     #16212e;
-      --bg-input:     #0a1018;
-
-      --border:       #1a2a3a;
-      --border-bright:#1e3a52;
-
-      --amber:        #e8a020;
-      --amber-dim:    #7a500a;
-      --amber-glow:   rgba(232,160,32,0.15);
-      --green:        #00e676;
-      --green-dim:    #004d20;
-      --green-glow:   rgba(0,230,118,0.12);
-      --red:          #ff1744;
-      --red-dim:      #4a0010;
-      --red-glow:     rgba(255,23,68,0.12);
-      --cyan:         #00b8d4;
-      --cyan-glow:    rgba(0,184,212,0.12);
-
-      --text-bright:  #e8edf2;
-      --text-mid:     #8fa8bf;
-      --text-dim:     #3d5a6e;
-      --text-ghost:   #1e3040;
-
-      --font-mono:    'Share Tech Mono', monospace;
-      --font-ui:      'Rajdhani', sans-serif;
-      --font-title:   'Orbitron', monospace;
-
-      --radius:       3px;
-      --transition:   0.18s ease;
-    }
-
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    html { font-size: 14px; }
-
-    body {
-      background: var(--bg-void);
-      color: var(--text-bright);
-      font-family: var(--font-ui);
-      font-weight: 400;
-      overflow: hidden;
-      height: 100vh;
-      position: relative;
-    }
-
-    /* Scanlines overlay */
-    body::before {
-      content: '';
-      position: fixed; inset: 0;
-      background: repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 2px,
-        rgba(0,0,0,0.06) 2px,
-        rgba(0,0,0,0.06) 4px
-      );
-      pointer-events: none;
-      z-index: 9999;
-    }
-
-    /* Vignette */
-    body::after {
-      content: '';
-      position: fixed; inset: 0;
-      background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.7) 100%);
-      pointer-events: none;
-      z-index: 9998;
-    }
-
-    /* ============================================================
-       SCROLLBAR
-    ============================================================ */
-    ::-webkit-scrollbar { width: 4px; height: 4px; }
-    ::-webkit-scrollbar-track { background: var(--bg-deep); }
-    ::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
-
-    /* ============================================================
-       UTILITÁRIOS
-    ============================================================ */
-    .hidden { display: none !important; }
-    .mono { font-family: var(--font-mono); }
-
-    .tag-online {
-      display: inline-flex; align-items: center; gap: 5px;
-      color: var(--green); font-family: var(--font-mono); font-size: 11px;
-      text-transform: uppercase; letter-spacing: 1px;
-    }
-    .tag-online::before {
-      content: ''; width: 7px; height: 7px; border-radius: 50%;
-      background: var(--green);
-      box-shadow: 0 0 8px var(--green), 0 0 16px var(--green);
-      animation: pulse-green 2s infinite;
-    }
-    .tag-offline {
-      display: inline-flex; align-items: center; gap: 5px;
-      color: var(--red); font-family: var(--font-mono); font-size: 11px;
-      text-transform: uppercase; letter-spacing: 1px;
-    }
-    .tag-offline::before {
-      content: ''; width: 7px; height: 7px; border-radius: 50%;
-      background: var(--red);
-      box-shadow: 0 0 8px var(--red);
-    }
-
-    @keyframes pulse-green {
-      0%,100% { box-shadow: 0 0 6px var(--green); opacity: 1; }
-      50% { box-shadow: 0 0 14px var(--green), 0 0 28px var(--green); opacity: 0.7; }
-    }
-
-    /* ============================================================
-       TELA DE LOGIN
-    ============================================================ */
-    #screen-login {
-      position: fixed; inset: 0;
-      display: flex; align-items: center; justify-content: center;
-      background: var(--bg-void);
-      z-index: 100;
-    }
-
-    .login-bg {
-      position: absolute; inset: 0;
-      background:
-        radial-gradient(ellipse 80% 60% at 50% 50%, rgba(0,184,212,0.04) 0%, transparent 70%),
-        repeating-linear-gradient(90deg, transparent, transparent 79px, rgba(26,42,58,0.3) 80px),
-        repeating-linear-gradient(0deg,  transparent, transparent 79px, rgba(26,42,58,0.3) 80px);
-    }
-
-    .login-box {
-      position: relative;
-      width: 400px;
-      background: var(--bg-panel);
-      border: 1px solid var(--border-bright);
-      padding: 48px 40px 40px;
-      box-shadow: 0 0 60px rgba(0,184,212,0.08), 0 0 0 1px rgba(0,184,212,0.05);
-      animation: fadeIn 0.5s ease;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(16px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
-    .login-logo {
-      text-align: center;
-      margin-bottom: 36px;
-    }
-    .login-logo .logo-title {
-      font-family: var(--font-title);
-      font-size: 28px;
-      font-weight: 900;
-      letter-spacing: 6px;
-      color: var(--cyan);
-      text-shadow: 0 0 20px rgba(0,184,212,0.5);
-    }
-    .login-logo .logo-sub {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      color: var(--text-dim);
-      letter-spacing: 3px;
-      margin-top: 6px;
-    }
-    .login-logo .logo-icon {
-      font-size: 40px;
-      display: block;
-      margin-bottom: 12px;
-      filter: drop-shadow(0 0 12px rgba(0,184,212,0.6));
-    }
-
-    .form-group {
-      margin-bottom: 16px;
-    }
-    .form-label {
-      display: block;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      color: var(--text-dim);
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      margin-bottom: 6px;
-    }
-    .form-input {
-      width: 100%;
-      background: var(--bg-input);
-      border: 1px solid var(--border);
-      color: var(--text-bright);
-      font-family: var(--font-mono);
-      font-size: 13px;
-      padding: 10px 12px;
-      outline: none;
-      transition: border-color var(--transition), box-shadow var(--transition);
-      border-radius: var(--radius);
-    }
-    .form-input:focus {
-      border-color: var(--cyan);
-      box-shadow: 0 0 0 2px rgba(0,184,212,0.12);
-    }
-    .form-input::placeholder { color: var(--text-ghost); }
-
-    .form-select {
-      width: 100%;
-      background: var(--bg-input);
-      border: 1px solid var(--border);
-      color: var(--text-bright);
-      font-family: var(--font-ui);
-      font-size: 13px;
-      padding: 10px 12px;
-      outline: none;
-      transition: border-color var(--transition);
-      border-radius: var(--radius);
-      cursor: pointer;
-    }
-    .form-select:focus { border-color: var(--cyan); }
-    .form-select option { background: var(--bg-panel); }
-
-    .btn {
-      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-      padding: 10px 20px;
-      font-family: var(--font-ui);
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      cursor: pointer;
-      border: none;
-      outline: none;
-      border-radius: var(--radius);
-      transition: all var(--transition);
-    }
-    .btn-primary {
-      background: var(--cyan);
-      color: var(--bg-void);
-      width: 100%;
-      padding: 12px;
-      font-size: 14px;
-      margin-top: 8px;
-    }
-    .btn-primary:hover {
-      background: #26c6da;
-      box-shadow: 0 0 20px rgba(0,184,212,0.4);
-    }
-    .btn-primary:active { transform: scale(0.98); }
-
-    .btn-sm {
-      padding: 6px 14px;
-      font-size: 11px;
-    }
-    .btn-amber {
-      background: transparent;
-      color: var(--amber);
-      border: 1px solid var(--amber-dim);
-    }
-    .btn-amber:hover {
-      background: var(--amber-glow);
-      border-color: var(--amber);
-    }
-    .btn-success {
-      background: transparent;
-      color: var(--green);
-      border: 1px solid var(--green-dim);
-    }
-    .btn-success:hover {
-      background: var(--green-glow);
-      border-color: var(--green);
-    }
-    .btn-danger {
-      background: transparent;
-      color: var(--red);
-      border: 1px solid var(--red-dim);
-    }
-    .btn-danger:hover {
-      background: var(--red-glow);
-      border-color: var(--red);
-    }
-    .btn-ghost {
-      background: transparent;
-      color: var(--text-mid);
-      border: 1px solid var(--border);
-    }
-    .btn-ghost:hover {
-      background: var(--bg-hover);
-      color: var(--text-bright);
-    }
-    .btn-cyan {
-      background: transparent;
-      color: var(--cyan);
-      border: 1px solid rgba(0,184,212,0.3);
-    }
-    .btn-cyan:hover {
-      background: var(--cyan-glow);
-      border-color: var(--cyan);
-    }
-
-    .login-error {
-      background: var(--red-glow);
-      border: 1px solid var(--red-dim);
-      color: var(--red);
-      font-family: var(--font-mono);
-      font-size: 11px;
-      padding: 8px 12px;
-      margin-top: 12px;
-      border-radius: var(--radius);
-      display: none;
-    }
-
-    .login-hint {
-      text-align: center;
-      font-family: var(--font-mono);
-      font-size: 10px;
-      color: var(--text-ghost);
-      margin-top: 20px;
-      letter-spacing: 1px;
-    }
-
-    /* ============================================================
-       LAYOUT PRINCIPAL (APP)
-    ============================================================ */
-    #app {
-      display: flex;
-      height: 100vh;
-      overflow: hidden;
-    }
-
-    /* ============================================================
-       SIDEBAR
-    ============================================================ */
-    #sidebar {
-      width: 220px;
-      min-width: 220px;
-      background: var(--bg-panel);
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      position: relative;
-      z-index: 10;
-    }
-
-    .sidebar-header {
-      padding: 20px 16px 16px;
-      border-bottom: 1px solid var(--border);
-    }
-    .sidebar-logo {
-      font-family: var(--font-title);
-      font-size: 16px;
-      font-weight: 900;
-      letter-spacing: 4px;
-      color: var(--cyan);
-      text-shadow: 0 0 12px rgba(0,184,212,0.4);
-    }
-    .sidebar-logo span {
-      display: block;
-      font-family: var(--font-mono);
-      font-size: 9px;
-      letter-spacing: 2px;
-      color: var(--text-dim);
-      font-weight: 400;
-      margin-top: 2px;
-    }
-
-    .sidebar-clock {
-      font-family: var(--font-mono);
-      font-size: 20px;
-      color: var(--amber);
-      text-shadow: 0 0 10px rgba(232,160,32,0.4);
-      padding: 14px 16px 10px;
-      border-bottom: 1px solid var(--border);
-      letter-spacing: 2px;
-    }
-    .sidebar-date {
-      font-size: 10px;
-      color: var(--text-dim);
-      letter-spacing: 1px;
-    }
-
-    .sidebar-nav {
-      flex: 1;
-      padding: 12px 0;
-      overflow-y: auto;
-    }
-
-    .nav-section {
-      font-family: var(--font-mono);
-      font-size: 9px;
-      color: var(--text-ghost);
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      padding: 8px 16px 4px;
-    }
-
-    .nav-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 9px 16px;
-      cursor: pointer;
-      color: var(--text-mid);
-      font-family: var(--font-ui);
-      font-size: 13px;
-      font-weight: 500;
-      letter-spacing: 0.5px;
-      border-left: 2px solid transparent;
-      transition: all var(--transition);
-      user-select: none;
-    }
-    .nav-item:hover {
-      background: var(--bg-hover);
-      color: var(--text-bright);
-    }
-    .nav-item.active {
-      color: var(--cyan);
-      border-left-color: var(--cyan);
-      background: rgba(0,184,212,0.05);
-    }
-    .nav-item .nav-icon { font-size: 15px; width: 18px; text-align: center; }
-    .nav-badge {
-      margin-left: auto;
-      background: var(--red);
-      color: white;
-      font-family: var(--font-mono);
-      font-size: 10px;
-      padding: 1px 6px;
-      border-radius: 10px;
-      min-width: 18px;
-      text-align: center;
-    }
-    .nav-badge.green {
-      background: var(--green-dim);
-      color: var(--green);
-      border: 1px solid var(--green-dim);
-    }
-
-    .sidebar-footer {
-      padding: 12px 16px;
-      border-top: 1px solid var(--border);
-    }
-    .sidebar-user {
-      display: flex; align-items: center; gap: 10px;
-      font-size: 12px;
-      color: var(--text-mid);
-      font-family: var(--font-ui);
-    }
-    .sidebar-user .avatar {
-      width: 28px; height: 28px; border-radius: 50%;
-      background: linear-gradient(135deg, var(--cyan), #004d5a);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 12px; font-weight: 700; color: var(--bg-void);
-      flex-shrink: 0;
-    }
-    .sidebar-user .uname { font-weight: 600; color: var(--text-bright); }
-    .sidebar-user .urole { font-size: 10px; font-family: var(--font-mono); color: var(--text-dim); }
-    .btn-logout {
-      background: none; border: none; color: var(--text-dim);
-      cursor: pointer; font-size: 16px; margin-left: auto;
-      padding: 4px; transition: color var(--transition);
-    }
-    .btn-logout:hover { color: var(--red); }
-
-    /* ============================================================
-       ÁREA PRINCIPAL
-    ============================================================ */
-    #main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      background: var(--bg-deep);
-    }
-
-    /* Top bar */
-    .topbar {
-      display: flex; align-items: center; gap: 12px;
-      padding: 0 20px;
-      height: 48px;
-      background: var(--bg-panel);
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-    .topbar-title {
-      font-family: var(--font-title);
-      font-size: 13px;
-      letter-spacing: 3px;
-      color: var(--text-mid);
-    }
-    .topbar-title span { color: var(--cyan); }
-    .topbar-sep { flex: 1; }
-
-    .status-bar {
-      display: flex; align-items: center; gap: 16px;
-    }
-    .status-item {
-      display: flex; align-items: center; gap: 6px;
-      font-family: var(--font-mono); font-size: 11px;
-      color: var(--text-mid);
-    }
-    .status-item .dot {
-      width: 6px; height: 6px; border-radius: 50%;
-    }
-    .dot-green { background: var(--green); box-shadow: 0 0 6px var(--green); }
-    .dot-red   { background: var(--red);   box-shadow: 0 0 6px var(--red); }
-    .dot-amber { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
-
-    /* Conteúdo */
-    #content {
-      flex: 1;
-      overflow-y: auto;
-      padding: 20px;
-    }
-
-    /* ============================================================
-       SCREENS (páginas do SPA)
-    ============================================================ */
-    .screen { display: none; }
-    .screen.active { display: block; animation: screenIn 0.25s ease; }
-
-    @keyframes screenIn {
-      from { opacity: 0; transform: translateY(6px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-
-    /* ============================================================
-       DASHBOARD
-    ============================================================ */
-    .page-header {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 20px;
-    }
-    .page-title {
-      font-family: var(--font-title);
-      font-size: 18px;
-      letter-spacing: 3px;
-      color: var(--text-bright);
-    }
-    .page-title small {
-      display: block;
-      font-family: var(--font-mono);
-      font-size: 10px;
-      color: var(--text-dim);
-      letter-spacing: 2px;
-      font-weight: 400;
-      margin-top: 2px;
-    }
-
-    /* Estatísticas */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-    @media (max-width: 900px) { .stats-grid { grid-template-columns: repeat(2,1fr); } }
-
-    .stat-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      padding: 16px;
-      position: relative;
-      overflow: hidden;
-      transition: border-color var(--transition), transform var(--transition);
-    }
-    .stat-card:hover { border-color: var(--border-bright); transform: translateY(-1px); }
-    .stat-card::before {
-      content: '';
-      position: absolute; top: 0; left: 0; right: 0; height: 2px;
-    }
-    .stat-card.cyan::before  { background: var(--cyan); }
-    .stat-card.green::before { background: var(--green); }
-    .stat-card.red::before   { background: var(--red); }
-    .stat-card.amber::before { background: var(--amber); }
-
-    .stat-label {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      margin-bottom: 8px;
-    }
-    .stat-value {
-      font-family: var(--font-title);
-      font-size: 32px;
-      font-weight: 700;
-      line-height: 1;
-    }
-    .stat-card.cyan  .stat-value { color: var(--cyan); }
-    .stat-card.green .stat-value { color: var(--green); }
-    .stat-card.red   .stat-value { color: var(--red); }
-    .stat-card.amber .stat-value { color: var(--amber); }
-    .stat-sub {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      color: var(--text-dim);
-      margin-top: 6px;
-    }
-    .stat-icon {
-      position: absolute; right: 14px; top: 14px;
-      font-size: 28px; opacity: 0.08;
-    }
-
-    /* Filtros */
-    .filter-bar {
-      display: flex; gap: 10px; align-items: center;
-      margin-bottom: 14px;
-      flex-wrap: wrap;
-    }
-    .filter-bar .form-input {
-      max-width: 280px;
-      padding: 7px 12px;
-      font-size: 12px;
-    }
-    .filter-select {
-      background: var(--bg-input);
-      border: 1px solid var(--border);
-      color: var(--text-mid);
-      font-family: var(--font-mono);
-      font-size: 11px;
-      padding: 7px 12px;
-      outline: none;
-      border-radius: var(--radius);
-      cursor: pointer;
-      transition: border-color var(--transition);
-    }
-    .filter-select:focus { border-color: var(--cyan); }
-
-    /* Tabela */
-    .table-wrap {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      overflow-x: auto;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    thead tr {
-      border-bottom: 1px solid var(--border);
-    }
-    th {
-      text-align: left;
-      font-family: var(--font-mono);
-      font-size: 10px;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      padding: 10px 14px;
-      white-space: nowrap;
-    }
-    td {
-      padding: 11px 14px;
-      font-family: var(--font-ui);
-      font-size: 13px;
-      color: var(--text-bright);
-      border-bottom: 1px solid rgba(26,42,58,0.5);
-      white-space: nowrap;
-    }
-    tr:last-child td { border-bottom: none; }
-    tbody tr:hover { background: var(--bg-hover); }
-
-    .td-mono { font-family: var(--font-mono); font-size: 12px; color: var(--text-mid); }
-    .td-name { font-weight: 600; color: var(--text-bright); }
-    .td-city { color: var(--text-mid); }
-
-    .latency {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      color: var(--text-dim);
-    }
-    .latency.good  { color: var(--green); }
-    .latency.mid   { color: var(--amber); }
-    .latency.bad   { color: var(--red); }
-
-    .action-group { display: flex; gap: 6px; align-items: center; }
-
-    /* ============================================================
-       FORMULÁRIO DVR
-    ============================================================ */
-    .panel {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      padding: 24px;
-      margin-bottom: 16px;
-    }
-    .panel-header {
-      font-family: var(--font-title);
-      font-size: 13px;
-      letter-spacing: 2px;
-      color: var(--cyan);
-      margin-bottom: 20px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .form-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px;
-    }
-    @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
-
-    .form-grid .full { grid-column: 1 / -1; }
-
-    .form-row { display: flex; gap: 14px; }
-    .form-row > * { flex: 1; }
-
-    .form-actions {
-      display: flex; gap: 10px; justify-content: flex-end;
-      margin-top: 20px;
-      padding-top: 16px;
-      border-top: 1px solid var(--border);
-    }
-
-    /* ============================================================
-       CÂMERAS — GRADE
-    ============================================================ */
-    .cam-toolbar {
-      display: flex; align-items: center; gap: 10px;
-      margin-bottom: 14px;
-      flex-wrap: wrap;
-    }
-    .cam-toolbar .dvr-select-label {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      color: var(--text-dim);
-      letter-spacing: 1px;
-    }
-
-    .grid-toggle {
-      display: flex; gap: 4px;
-      margin-left: auto;
-    }
-    .grid-btn {
-      width: 34px; height: 34px;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      color: var(--text-dim);
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 13px;
-      border-radius: var(--radius);
-      transition: all var(--transition);
-    }
-    .grid-btn:hover { background: var(--bg-hover); color: var(--text-bright); }
-    .grid-btn.active { background: rgba(0,184,212,0.12); border-color: var(--cyan); color: var(--cyan); }
-
-    .cam-grid {
-      display: grid;
-      gap: 4px;
-    }
-    .cam-grid.g1 { grid-template-columns: 1fr; }
-    .cam-grid.g4 { grid-template-columns: repeat(2,1fr); }
-    .cam-grid.g9 { grid-template-columns: repeat(3,1fr); }
-    .cam-grid.g16 { grid-template-columns: repeat(4,1fr); }
-
-    .cam-cell {
-      position: relative;
-      background: var(--bg-void);
-      border: 1px solid var(--border);
-      aspect-ratio: 16/9;
-      overflow: hidden;
-      cursor: pointer;
-      transition: border-color var(--transition);
-      display: flex; align-items: center; justify-content: center;
-    }
-    .cam-cell:hover { border-color: var(--cyan); }
-    .cam-cell.offline { border-color: var(--red-dim); }
-    .cam-cell.selected { border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(0,184,212,0.25); }
-
-    /* Simulação de feed de câmera */
-    .cam-feed {
-      position: absolute; inset: 0;
-      background:
-        radial-gradient(ellipse at 30% 40%, rgba(0,30,40,0.8) 0%, transparent 60%),
-        radial-gradient(ellipse at 70% 60%, rgba(0,20,30,0.6) 0%, transparent 50%),
-        var(--bg-void);
-      display: flex; align-items: center; justify-content: center;
-    }
-
-    /* Noise texture animation */
-    .cam-feed::before {
-      content: '';
-      position: absolute; inset: 0;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-      opacity: 0.5;
-      animation: noise-move 0.5s steps(2) infinite;
-    }
-    @keyframes noise-move {
-      0%   { transform: translate(0,0); }
-      25%  { transform: translate(-2%,-1%); }
-      50%  { transform: translate(1%, 2%); }
-      75%  { transform: translate(-1%, 1%); }
-      100% { transform: translate(0,0); }
-    }
-
-    .cam-offline-msg {
-      text-align: center;
-      z-index: 2;
-    }
-    .cam-offline-msg .icon { font-size: 24px; margin-bottom: 6px; opacity: 0.4; }
-    .cam-offline-msg .msg {
-      font-family: var(--font-mono); font-size: 10px;
-      color: var(--text-ghost); letter-spacing: 1px;
-    }
-
-    /* Simulação de movimento na câmera */
-    .cam-silhouette {
-      position: absolute;
-      width: 30px; height: 60px;
-      background: rgba(255,255,255,0.025);
-      border-radius: 4px;
-      bottom: 20%;
-      animation: walk 8s linear infinite;
-    }
-    @keyframes walk {
-      0%   { left: -5%; opacity: 0; }
-      5%   { opacity: 1; }
-      95%  { opacity: 1; }
-      100% { left: 110%; opacity: 0; }
-    }
-
-    .cam-crosshair {
-      position: absolute;
-      width: 30px; height: 30px;
-      border: 1px solid rgba(0,184,212,0.3);
-      border-radius: 50%;
-      top: 30%; left: 45%;
-      animation: crosshair-pulse 3s ease-in-out infinite;
-    }
-    .cam-crosshair::before, .cam-crosshair::after {
-      content: '';
-      position: absolute;
-      background: rgba(0,184,212,0.3);
-    }
-    .cam-crosshair::before { width: 1px; height: 8px; left: 50%; top: -8px; }
-    .cam-crosshair::after  { width: 8px; height: 1px; top: 50%; left: -8px; }
-    @keyframes crosshair-pulse {
-      0%,100% { opacity: 0.3; transform: scale(1); }
-      50% { opacity: 0.8; transform: scale(1.1); }
-    }
-
-    .cam-overlay {
-      position: absolute; inset: 0;
-      z-index: 3;
-      display: flex; flex-direction: column; justify-content: space-between;
-      padding: 6px 8px;
-      pointer-events: none;
-    }
-    .cam-top {
-      display: flex; justify-content: space-between; align-items: flex-start;
-    }
-    .cam-name {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      color: var(--amber);
-      text-shadow: 0 0 6px rgba(232,160,32,0.6);
-      letter-spacing: 1px;
-      background: rgba(0,0,0,0.5);
-      padding: 2px 6px;
-    }
-    .cam-rec {
-      font-family: var(--font-mono);
-      font-size: 9px;
-      color: var(--red);
-      display: flex; align-items: center; gap: 4px;
-      background: rgba(0,0,0,0.5);
-      padding: 2px 6px;
-    }
-    .cam-rec::before {
-      content: '';
-      width: 5px; height: 5px; border-radius: 50%;
-      background: var(--red);
-      animation: rec-blink 1.2s steps(1) infinite;
-    }
-    @keyframes rec-blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
-
-    .cam-bottom {
-      display: flex; justify-content: space-between; align-items: flex-end;
-    }
-    .cam-time {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      color: rgba(255,255,255,0.5);
-      background: rgba(0,0,0,0.5);
-      padding: 2px 6px;
-    }
-    .cam-ch {
-      font-family: var(--font-mono);
-      font-size: 9px;
-      color: var(--text-ghost);
-      background: rgba(0,0,0,0.5);
-      padding: 2px 6px;
-    }
-    .cam-status-badge {
-      position: absolute;
-      bottom: 6px; left: 50%; transform: translateX(-50%);
-      z-index: 5;
-      font-family: var(--font-mono);
-      font-size: 10px;
-    }
-
-    /* Fullscreen modal */
-    #fullscreen-modal {
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.96);
-      z-index: 1000;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-    }
-    .fs-cam {
-      width: 90vw; max-width: 1100px;
-      aspect-ratio: 16/9;
-      position: relative;
-      border: 1px solid var(--border-bright);
-    }
-    .fs-toolbar {
-      display: flex; align-items: center; gap: 16px;
-      margin-top: 16px;
-      color: var(--text-mid);
-      font-family: var(--font-mono); font-size: 12px;
-    }
-
-    /* ============================================================
-       LOGS
-    ============================================================ */
-    .log-container {
-      background: var(--bg-void);
-      border: 1px solid var(--border);
-      font-family: var(--font-mono);
-      font-size: 12px;
-      line-height: 1.6;
-      padding: 12px;
-      height: 360px;
-      overflow-y: auto;
-      border-radius: var(--radius);
-    }
-    .log-line { display: flex; gap: 10px; padding: 2px 0; }
-    .log-time { color: var(--text-ghost); flex-shrink: 0; }
-    .log-level { flex-shrink: 0; width: 50px; }
-    .log-level.info  { color: var(--cyan); }
-    .log-level.ok    { color: var(--green); }
-    .log-level.warn  { color: var(--amber); }
-    .log-level.error { color: var(--red); }
-    .log-msg { color: var(--text-mid); }
-
-    /* ============================================================
-       MODAL GENÉRICO
-    ============================================================ */
-    .modal-backdrop {
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.75);
-      z-index: 500;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .modal {
-      background: var(--bg-panel);
-      border: 1px solid var(--border-bright);
-      width: 520px; max-width: 95vw;
-      max-height: 90vh;
-      overflow-y: auto;
-      padding: 28px;
-      animation: fadeIn 0.2s ease;
-      box-shadow: 0 0 40px rgba(0,0,0,0.6);
-    }
-    .modal-header {
-      display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 20px;
-      padding-bottom: 14px;
-      border-bottom: 1px solid var(--border);
-    }
-    .modal-title {
-      font-family: var(--font-title);
-      font-size: 14px;
-      letter-spacing: 2px;
-      color: var(--cyan);
-    }
-    .modal-close {
-      background: none; border: none; color: var(--text-dim);
-      font-size: 20px; cursor: pointer; line-height: 1;
-      transition: color var(--transition);
-    }
-    .modal-close:hover { color: var(--red); }
-
-    /* Teste de conectividade */
-    .test-result {
-      background: var(--bg-input);
-      border: 1px solid var(--border);
-      padding: 16px;
-      margin-top: 16px;
-      font-family: var(--font-mono);
-      font-size: 12px;
-      border-radius: var(--radius);
-    }
-    .test-row { display: flex; justify-content: space-between; padding: 4px 0; }
-    .test-key { color: var(--text-dim); }
-    .test-val { color: var(--text-bright); }
-    .test-val.ok    { color: var(--green); }
-    .test-val.fail  { color: var(--red); }
-
-    /* ============================================================
-       TOAST
-    ============================================================ */
-    #toast-container {
-      position: fixed; bottom: 20px; right: 20px;
-      z-index: 9000;
-      display: flex; flex-direction: column; gap: 8px;
-    }
-    .toast {
-      background: var(--bg-panel);
-      border: 1px solid var(--border-bright);
-      padding: 12px 16px;
-      font-family: var(--font-mono); font-size: 12px;
-      min-width: 260px;
-      display: flex; align-items: center; gap: 10px;
-      animation: toast-in 0.3s ease;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-    }
-    .toast.success { border-left: 3px solid var(--green); color: var(--green); }
-    .toast.error   { border-left: 3px solid var(--red);   color: var(--red); }
-    .toast.info    { border-left: 3px solid var(--cyan);  color: var(--cyan); }
-    .toast.warn    { border-left: 3px solid var(--amber); color: var(--amber); }
-    @keyframes toast-in {
-      from { opacity: 0; transform: translateX(20px); }
-      to   { opacity: 1; transform: translateX(0); }
-    }
-
-    /* ============================================================
-       INDICADOR DE CONEXÃO API
-    ============================================================ */
-    .api-indicator {
-      display: flex; align-items: center; gap: 6px;
-      font-family: var(--font-mono); font-size: 10px;
-      color: var(--text-dim);
-    }
-
-    /* ============================================================
-       PLACEHOLDER sem itens
-    ============================================================ */
-    .empty-state {
-      text-align: center;
-      padding: 40px 20px;
-      color: var(--text-ghost);
-      font-family: var(--font-mono); font-size: 12px;
-      letter-spacing: 1px;
-    }
-    .empty-icon { font-size: 36px; margin-bottom: 12px; opacity: 0.3; }
-
-    /* ============================================================
-       LOADING SPINNER
-    ============================================================ */
-    .spinner {
-      width: 16px; height: 16px;
-      border: 2px solid var(--border);
-      border-top-color: var(--cyan);
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      display: inline-block;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* RTSPs */
-    .rtsp-list { margin-top: 10px; }
-    .rtsp-item {
-      background: var(--bg-input);
-      border: 1px solid var(--border);
-      padding: 8px 12px;
-      margin-bottom: 6px;
-      font-family: var(--font-mono); font-size: 11px;
-      color: var(--text-mid);
-      display: flex; justify-content: space-between; align-items: center;
-      gap: 8px;
-    }
-    .rtsp-url { word-break: break-all; }
-    .rtsp-copy {
-      background: none; border: none;
-      color: var(--text-dim); cursor: pointer; font-size: 14px;
-      flex-shrink: 0;
-      transition: color var(--transition);
-    }
-    .rtsp-copy:hover { color: var(--cyan); }
-
-  </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;400;500;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --void:#040608;--deep:#080c10;--panel:#0d1117;--card:#111820;--hover:#16212e;--inp:#0a1018;
+  --border:#1a2a3a;--borderB:#1e3a52;
+  --amber:#e8a020;--amberD:#7a500a;--amberG:rgba(232,160,32,.15);
+  --green:#00e676;--greenD:#004d20;--greenG:rgba(0,230,118,.12);
+  --red:#ff1744;--redD:#4a0010;--redG:rgba(255,23,68,.12);
+  --cyan:#00b8d4;--cyanG:rgba(0,184,212,.12);
+  --tb:#e8edf2;--tm:#8fa8bf;--td:#3d5a6e;--tg:#1e3040;
+  --mono:'Share Tech Mono',monospace;--ui:'Rajdhani',sans-serif;--title:'Orbitron',monospace;
+  --r:3px;--tr:.18s ease;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px}
+body{background:var(--void);color:var(--tb);font-family:var(--ui);overflow:hidden;height:100vh;position:relative}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.05) 2px,rgba(0,0,0,.05) 4px);pointer-events:none;z-index:9999}
+body::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at center,transparent 60%,rgba(0,0,0,.6) 100%);pointer-events:none;z-index:9998}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--deep)}
+::-webkit-scrollbar-thumb{background:var(--borderB);border-radius:2px}
+.hidden{display:none!important}
+
+/* LOGIN */
+#screen-login{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--void);z-index:100}
+.login-bg{position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 50%,rgba(0,184,212,.04) 0%,transparent 70%),repeating-linear-gradient(90deg,transparent,transparent 79px,rgba(26,42,58,.3) 80px),repeating-linear-gradient(0deg,transparent,transparent 79px,rgba(26,42,58,.3) 80px)}
+.login-box{position:relative;width:400px;background:var(--panel);border:1px solid var(--borderB);padding:48px 40px 40px;box-shadow:0 0 60px rgba(0,184,212,.08);animation:fadeUp .5s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.logo-icon{font-size:40px;display:block;text-align:center;margin-bottom:12px;filter:drop-shadow(0 0 12px rgba(0,184,212,.6))}
+.logo-title{font-family:var(--title);font-size:28px;font-weight:900;letter-spacing:6px;color:var(--cyan);text-shadow:0 0 20px rgba(0,184,212,.5);text-align:center}
+.logo-sub{font-family:var(--mono);font-size:10px;color:var(--td);letter-spacing:3px;margin-top:6px;text-align:center;margin-bottom:32px}
+.fl{display:block;font-family:var(--mono);font-size:11px;color:var(--td);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;margin-top:14px}
+.fi{width:100%;background:var(--inp);border:1px solid var(--border);color:var(--tb);font-family:var(--mono);font-size:13px;padding:10px 12px;outline:none;transition:border-color var(--tr),box-shadow var(--tr);border-radius:var(--r)}
+.fi:focus{border-color:var(--cyan);box-shadow:0 0 0 2px rgba(0,184,212,.12)}
+.fi::placeholder{color:var(--tg)}
+.fs{width:100%;background:var(--inp);border:1px solid var(--border);color:var(--tb);font-family:var(--ui);font-size:13px;padding:10px 12px;outline:none;border-radius:var(--r);cursor:pointer}
+.fs:focus{border-color:var(--cyan)}
+.fs option{background:var(--panel)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 20px;font-family:var(--ui);font-size:13px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border:none;outline:none;border-radius:var(--r);transition:all var(--tr)}
+.btn-primary{background:var(--cyan);color:var(--void);width:100%;padding:12px;font-size:14px;margin-top:16px}
+.btn-primary:hover{background:#26c6da;box-shadow:0 0 20px rgba(0,184,212,.4)}
+.btn-sm{padding:6px 14px;font-size:11px}
+.btn-amber{background:transparent;color:var(--amber);border:1px solid var(--amberD)}
+.btn-amber:hover{background:var(--amberG);border-color:var(--amber)}
+.btn-ok{background:transparent;color:var(--green);border:1px solid var(--greenD)}
+.btn-ok:hover{background:var(--greenG);border-color:var(--green)}
+.btn-danger{background:transparent;color:var(--red);border:1px solid var(--redD)}
+.btn-danger:hover{background:var(--redG);border-color:var(--red)}
+.btn-ghost{background:transparent;color:var(--tm);border:1px solid var(--border)}
+.btn-ghost:hover{background:var(--hover);color:var(--tb)}
+.btn-cyan{background:transparent;color:var(--cyan);border:1px solid rgba(0,184,212,.3)}
+.btn-cyan:hover{background:var(--cyanG);border-color:var(--cyan)}
+.login-err{background:var(--redG);border:1px solid var(--redD);color:var(--red);font-family:var(--mono);font-size:11px;padding:8px 12px;margin-top:12px;border-radius:var(--r);display:none}
+.login-hint{text-align:center;font-family:var(--mono);font-size:10px;color:var(--tg);margin-top:20px;letter-spacing:1px}
+
+/* APP LAYOUT */
+#app{display:flex;height:100vh;overflow:hidden}
+
+/* SIDEBAR */
+#sidebar{width:220px;min-width:220px;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:10}
+.sb-header{padding:20px 16px 16px;border-bottom:1px solid var(--border)}
+.sb-logo{font-family:var(--title);font-size:16px;font-weight:900;letter-spacing:4px;color:var(--cyan);text-shadow:0 0 12px rgba(0,184,212,.4)}
+.sb-logo span{display:block;font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--td);font-weight:400;margin-top:2px}
+.sb-clock{font-family:var(--mono);font-size:20px;color:var(--amber);text-shadow:0 0 10px rgba(232,160,32,.4);padding:14px 16px 10px;border-bottom:1px solid var(--border);letter-spacing:2px}
+.sb-date{font-size:10px;color:var(--td);letter-spacing:1px}
+.sb-nav{flex:1;padding:12px 0;overflow-y:auto}
+.nav-sec{font-family:var(--mono);font-size:9px;color:var(--tg);letter-spacing:2px;text-transform:uppercase;padding:8px 16px 4px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 16px;cursor:pointer;color:var(--tm);font-family:var(--ui);font-size:13px;font-weight:500;letter-spacing:.5px;border-left:2px solid transparent;transition:all var(--tr);user-select:none}
+.nav-item:hover{background:var(--hover);color:var(--tb)}
+.nav-item.active{color:var(--cyan);border-left-color:var(--cyan);background:rgba(0,184,212,.05)}
+.nav-icon{font-size:15px;width:18px;text-align:center}
+.nav-badge{margin-left:auto;background:var(--red);color:#fff;font-family:var(--mono);font-size:10px;padding:1px 6px;border-radius:10px;min-width:18px;text-align:center}
+.nav-badge.g{background:var(--greenD);color:var(--green);border:1px solid var(--greenD)}
+.sb-footer{padding:12px 16px;border-top:1px solid var(--border)}
+.sb-user{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--tm)}
+.avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),#004d5a);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--void);flex-shrink:0}
+.uname{font-weight:600;color:var(--tb)}
+.urole{font-size:10px;font-family:var(--mono);color:var(--td)}
+.btn-logout{background:none;border:none;color:var(--td);cursor:pointer;font-size:16px;margin-left:auto;padding:4px;transition:color var(--tr)}
+.btn-logout:hover{color:var(--red)}
+
+/* MAIN */
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--deep)}
+.topbar{display:flex;align-items:center;gap:12px;padding:0 20px;height:48px;background:var(--panel);border-bottom:1px solid var(--border);flex-shrink:0}
+.topbar-title{font-family:var(--title);font-size:13px;letter-spacing:3px;color:var(--tm)}
+.topbar-title span{color:var(--cyan)}
+.topbar-sep{flex:1}
+.status-bar{display:flex;align-items:center;gap:16px}
+.si{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--tm)}
+.dot{width:6px;height:6px;border-radius:50%}
+.dot-g{background:var(--green);box-shadow:0 0 6px var(--green)}
+.dot-r{background:var(--red);box-shadow:0 0 6px var(--red)}
+.dot-a{background:var(--amber);box-shadow:0 0 6px var(--amber)}
+#content{flex:1;overflow-y:auto;padding:20px}
+.screen{display:none}
+.screen.active{display:block;animation:screenIn .25s ease}
+@keyframes screenIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* PAGE HEADER */
+.ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.pt{font-family:var(--title);font-size:18px;letter-spacing:3px;color:var(--tb)}
+.pt small{display:block;font-family:var(--mono);font-size:10px;color:var(--td);letter-spacing:2px;font-weight:400;margin-top:2px}
+
+/* STATS */
+.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.sc{background:var(--card);border:1px solid var(--border);padding:16px;position:relative;overflow:hidden;transition:border-color var(--tr),transform var(--tr)}
+.sc:hover{border-color:var(--borderB);transform:translateY(-1px)}
+.sc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.sc.cy::before{background:var(--cyan)}.sc.gr::before{background:var(--green)}.sc.re::before{background:var(--red)}.sc.am::before{background:var(--amber)}
+.sl{font-family:var(--mono);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--td);margin-bottom:8px}
+.sv{font-family:var(--title);font-size:32px;font-weight:700;line-height:1}
+.sc.cy .sv{color:var(--cyan)}.sc.gr .sv{color:var(--green)}.sc.re .sv{color:var(--red)}.sc.am .sv{color:var(--amber)}
+.ss{font-family:var(--mono);font-size:10px;color:var(--td);margin-top:6px}
+.si2{position:absolute;right:14px;top:14px;font-size:28px;opacity:.08}
+
+/* FILTER */
+.fb{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.fb .fi{max-width:280px;padding:7px 12px;font-size:12px}
+.fsel{background:var(--inp);border:1px solid var(--border);color:var(--tm);font-family:var(--mono);font-size:11px;padding:7px 12px;outline:none;border-radius:var(--r);cursor:pointer;transition:border-color var(--tr)}
+.fsel:focus{border-color:var(--cyan)}
+
+/* TABLE */
+.tw{background:var(--card);border:1px solid var(--border);overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+thead tr{border-bottom:1px solid var(--border)}
+th{text-align:left;font-family:var(--mono);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--td);padding:10px 14px;white-space:nowrap}
+td{padding:11px 14px;font-family:var(--ui);font-size:13px;color:var(--tb);border-bottom:1px solid rgba(26,42,58,.5);white-space:nowrap}
+tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--hover)}
+.tm2{font-family:var(--mono);font-size:12px;color:var(--tm)}
+.ag{display:flex;gap:6px;align-items:center}
+
+/* STATUS */
+.ton{display:inline-flex;align-items:center;gap:5px;color:var(--green);font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:1px}
+.ton::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green),0 0 16px var(--green);animation:pg 2s infinite}
+.toff{display:inline-flex;align-items:center;gap:5px;color:var(--red);font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:1px}
+.toff::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--red);box-shadow:0 0 8px var(--red)}
+@keyframes pg{0%,100%{box-shadow:0 0 6px var(--green);opacity:1}50%{box-shadow:0 0 14px var(--green),0 0 28px var(--green);opacity:.7}}
+.lat{font-family:var(--mono);font-size:11px;color:var(--td)}
+.lat.g{color:var(--green)}.lat.m{color:var(--amber)}.lat.b{color:var(--red)}
+
+/* PANEL */
+.panel{background:var(--card);border:1px solid var(--border);padding:24px;margin-bottom:16px}
+.panel-hdr{font-family:var(--title);font-size:13px;letter-spacing:2px;color:var(--cyan);margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.fg .full{grid-column:1/-1}
+.fa{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+
+/* CAMERAS */
+.ct{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.gt{display:flex;gap:4px;margin-left:auto}
+.gb{width:34px;height:34px;background:var(--card);border:1px solid var(--border);color:var(--td);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;border-radius:var(--r);transition:all var(--tr)}
+.gb:hover{background:var(--hover);color:var(--tb)}
+.gb.active{background:rgba(0,184,212,.12);border-color:var(--cyan);color:var(--cyan)}
+.cg{display:grid;gap:4px}
+.cg.g1{grid-template-columns:1fr}
+.cg.g4{grid-template-columns:repeat(2,1fr)}
+.cg.g9{grid-template-columns:repeat(3,1fr)}
+.cg.g16{grid-template-columns:repeat(4,1fr)}
+.cc{position:relative;background:var(--void);border:1px solid var(--border);aspect-ratio:16/9;overflow:hidden;cursor:pointer;transition:border-color var(--tr);display:flex;align-items:center;justify-content:center}
+.cc:hover{border-color:var(--cyan)}
+.cc.offline{border-color:var(--redD)}
+.cf{position:absolute;inset:0;background:radial-gradient(ellipse at 30% 40%,rgba(0,30,40,.8) 0%,transparent 60%),radial-gradient(ellipse at 70% 60%,rgba(0,20,30,.6) 0%,transparent 50%),var(--void);display:flex;align-items:center;justify-content:center}
+.cf::before{content:'';position:absolute;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");opacity:.5;animation:nm .5s steps(2) infinite}
+@keyframes nm{0%{transform:translate(0,0)}25%{transform:translate(-2%,-1%)}50%{transform:translate(1%,2%)}75%{transform:translate(-1%,1%)}100%{transform:translate(0,0)}}
+.cam-sil{position:absolute;width:30px;height:60px;background:rgba(255,255,255,.025);border-radius:4px;bottom:20%;animation:walk 8s linear infinite}
+@keyframes walk{0%{left:-5%;opacity:0}5%{opacity:1}95%{opacity:1}100%{left:110%;opacity:0}}
+.cam-cross{position:absolute;width:30px;height:30px;border:1px solid rgba(0,184,212,.3);border-radius:50%;animation:cp 3s ease-in-out infinite}
+.cam-cross::before,.cam-cross::after{content:'';position:absolute;background:rgba(0,184,212,.3)}
+.cam-cross::before{width:1px;height:8px;left:50%;top:-8px}
+.cam-cross::after{width:8px;height:1px;top:50%;left:-8px}
+@keyframes cp{0%,100%{opacity:.3;transform:scale(1)}50%{opacity:.8;transform:scale(1.1)}}
+.co{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;justify-content:space-between;padding:6px 8px;pointer-events:none}
+.ctop,.cbot{display:flex;justify-content:space-between;align-items:flex-start}
+.cname{font-family:var(--mono);font-size:10px;color:var(--amber);text-shadow:0 0 6px rgba(232,160,32,.6);letter-spacing:1px;background:rgba(0,0,0,.5);padding:2px 6px}
+.crec{font-family:var(--mono);font-size:9px;color:var(--red);display:flex;align-items:center;gap:4px;background:rgba(0,0,0,.5);padding:2px 6px}
+.crec::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--red);animation:rb 1.2s steps(1) infinite}
+@keyframes rb{0%,100%{opacity:1}50%{opacity:0}}
+.ctime{font-family:var(--mono);font-size:10px;color:rgba(255,255,255,.5);background:rgba(0,0,0,.5);padding:2px 6px}
+.cch{font-family:var(--mono);font-size:9px;color:var(--tg);background:rgba(0,0,0,.5);padding:2px 6px}
+.cam-off-msg{text-align:center;z-index:2}
+.cam-off-msg .icon{font-size:24px;margin-bottom:6px;opacity:.4}
+.cam-off-msg .msg{font-family:var(--mono);font-size:10px;color:var(--tg);letter-spacing:1px}
+
+/* FULLSCREEN */
+#fs-modal{position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.fs-cam{width:90vw;max-width:1100px;aspect-ratio:16/9;position:relative;border:1px solid var(--borderB)}
+.fs-tb{display:flex;align-items:center;gap:16px;margin-top:16px;color:var(--tm);font-family:var(--mono);font-size:12px}
+
+/* TEST RESULT */
+.tr-panel{background:var(--inp);border:1px solid var(--border);padding:16px;margin-top:16px;font-family:var(--mono);font-size:12px;border-radius:var(--r)}
+.tr-row{display:flex;justify-content:space-between;padding:4px 0}
+.tr-k{color:var(--td)}.tr-v{color:var(--tb)}.tr-v.ok{color:var(--green)}.tr-v.fail{color:var(--red)}
+.rtsp-item{background:var(--inp);border:1px solid var(--border);padding:8px 12px;margin-bottom:6px;font-family:var(--mono);font-size:11px;color:var(--tm);display:flex;justify-content:space-between;align-items:center;gap:8px}
+.rtsp-url{word-break:break-all}
+.rtsp-cp{background:none;border:none;color:var(--td);cursor:pointer;font-size:14px;flex-shrink:0;transition:color var(--tr)}
+.rtsp-cp:hover{color:var(--cyan)}
+
+/* LOGS */
+.lc{background:var(--void);border:1px solid var(--border);font-family:var(--mono);font-size:12px;line-height:1.6;padding:12px;height:360px;overflow-y:auto;border-radius:var(--r)}
+.ll{display:flex;gap:10px;padding:2px 0}
+.lt{color:var(--tg);flex-shrink:0}
+.lv{flex-shrink:0;width:55px}
+.lv.info{color:var(--cyan)}.lv.ok{color:var(--green)}.lv.warn{color:var(--amber)}.lv.error{color:var(--red)}
+.lm{color:var(--tm)}
+
+/* TOAST */
+#toasts{position:fixed;bottom:20px;right:20px;z-index:9000;display:flex;flex-direction:column;gap:8px}
+.toast{background:var(--panel);border:1px solid var(--borderB);padding:12px 16px;font-family:var(--mono);font-size:12px;min-width:260px;display:flex;align-items:center;gap:10px;animation:ti .3s ease;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+.toast.s{border-left:3px solid var(--green);color:var(--green)}
+.toast.e{border-left:3px solid var(--red);color:var(--red)}
+.toast.i{border-left:3px solid var(--cyan);color:var(--cyan)}
+.toast.w{border-left:3px solid var(--amber);color:var(--amber)}
+@keyframes ti{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+.empty-state{text-align:center;padding:40px 20px;color:var(--tg);font-family:var(--mono);font-size:12px;letter-spacing:1px}
+.empty-icon{font-size:36px;margin-bottom:12px;opacity:.3}
+.spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--cyan);border-radius:50%;animation:sp .7s linear infinite;display:inline-block}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
 </head>
 <body>
 
-<!-- ================================================================
-     TELA DE LOGIN
-================================================================ -->
+<!-- LOGIN -->
 <div id="screen-login">
   <div class="login-bg"></div>
   <div class="login-box">
-    <div class="login-logo">
-      <span class="logo-icon">📷</span>
-      <div class="logo-title">SENTINEL</div>
-      <div class="logo-sub">SISTEMA DE MONITORAMENTO CFTV v2.0</div>
-    </div>
-
-    <div class="form-group">
-      <label class="form-label">Usuário</label>
-      <input type="text" id="login-user" class="form-input" placeholder="admin" autocomplete="username" />
-    </div>
-    <div class="form-group">
-      <label class="form-label">Senha</label>
-      <input type="password" id="login-pass" class="form-input" placeholder="••••••••" autocomplete="current-password" />
-    </div>
-
-    <button class="btn btn-primary" onclick="App.login()">
-      <span>ACESSAR SISTEMA</span>
-    </button>
-
-    <div class="login-error" id="login-error">⚠ Credenciais inválidas. Tente novamente.</div>
-    <div class="login-hint">DEMO: admin / admin123 &nbsp;|&nbsp; API: localhost:5000</div>
+    <span class="logo-icon">📷</span>
+    <div class="logo-title">SENTINEL</div>
+    <div class="logo-sub">SISTEMA DE MONITORAMENTO CFTV v2.0</div>
+    <label class="fl">Usuário</label>
+    <input type="text" id="lu" class="fi" placeholder="admin" autocomplete="username"/>
+    <label class="fl">Senha</label>
+    <input type="password" id="lp" class="fi" placeholder="••••••••" autocomplete="current-password"/>
+    <button class="btn btn-primary" onclick="A.login()">ACESSAR SISTEMA</button>
+    <div class="login-err" id="lerr">⚠ Credenciais inválidas</div>
+    <div class="login-hint">admin / admin123 &nbsp;|&nbsp; Dados salvos automaticamente</div>
   </div>
 </div>
 
-<!-- ================================================================
-     APLICAÇÃO PRINCIPAL
-================================================================ -->
+<!-- APP -->
 <div id="app" class="hidden">
-
-  <!-- Sidebar -->
   <nav id="sidebar">
-    <div class="sidebar-header">
-      <div class="sidebar-logo">
-        SENTINEL
-        <span>CFTV MONITOR v2.0</span>
-      </div>
+    <div class="sb-header">
+      <div class="sb-logo">SENTINEL<span>CFTV MONITOR v2.0</span></div>
     </div>
-
-    <div class="sidebar-clock">
+    <div class="sb-clock">
       <div id="clock">00:00:00</div>
-      <div class="sidebar-date" id="date-display">—</div>
+      <div class="sb-date" id="datedisp">—</div>
     </div>
-
-    <div class="sidebar-nav">
-      <div class="nav-section">Principal</div>
-      <div class="nav-item active" onclick="App.navigate('dashboard')" data-screen="dashboard">
+    <div class="sb-nav">
+      <div class="nav-sec">Principal</div>
+      <div class="nav-item active" onclick="A.go('dashboard')" data-s="dashboard">
         <span class="nav-icon">🖥</span> Dashboard
-        <span class="nav-badge green" id="badge-online">0</span>
+        <span class="nav-badge g" id="badge-on">0</span>
       </div>
-      <div class="nav-item" onclick="App.navigate('cameras')" data-screen="cameras">
+      <div class="nav-item" onclick="A.go('cameras')" data-s="cameras">
         <span class="nav-icon">📹</span> Câmeras
       </div>
-
-      <div class="nav-section">Configuração</div>
-      <div class="nav-item" onclick="App.navigate('add-dvr')" data-screen="add-dvr">
+      <div class="nav-sec">Configuração</div>
+      <div class="nav-item" onclick="A.go('add-dvr')" data-s="add-dvr">
         <span class="nav-icon">➕</span> Novo DVR
       </div>
-      <div class="nav-item" onclick="App.navigate('logs')" data-screen="logs">
+      <div class="nav-item" onclick="A.go('logs')" data-s="logs">
         <span class="nav-icon">📋</span> Logs
-        <span class="nav-badge" id="badge-logs" style="display:none">!</span>
       </div>
     </div>
-
-    <div class="sidebar-footer">
-      <div class="sidebar-user">
-        <div class="avatar" id="user-avatar">A</div>
-        <div>
-          <div class="uname" id="user-name">admin</div>
-          <div class="urole">OPERADOR</div>
-        </div>
-        <button class="btn-logout" onclick="App.logout()" title="Sair">⏏</button>
+    <div class="sb-footer">
+      <div class="sb-user">
+        <div class="avatar" id="uavatar">A</div>
+        <div><div class="uname" id="uname">admin</div><div class="urole">OPERADOR</div></div>
+        <button class="btn-logout" onclick="A.logout()" title="Sair">⏏</button>
       </div>
     </div>
   </nav>
 
-  <!-- Área principal -->
   <div id="main">
-    <!-- Top bar -->
     <div class="topbar">
-      <span class="topbar-title">SENTINEL / <span id="topbar-section">DASHBOARD</span></span>
+      <span class="topbar-title">SENTINEL / <span id="tsec">DASHBOARD</span></span>
       <div class="topbar-sep"></div>
-
       <div class="status-bar">
-        <div class="status-item">
-          <div class="dot dot-green"></div>
-          <span id="status-online-count">0 ONLINE</span>
-        </div>
-        <div class="status-item">
-          <div class="dot dot-red" id="dot-offline"></div>
-          <span id="status-offline-count">0 OFFLINE</span>
-        </div>
-        <div class="status-item">
-          <div class="dot dot-amber" id="dot-api"></div>
-          <span id="api-status-label">DEMO MODE</span>
-        </div>
+        <div class="si"><div class="dot dot-g"></div><span id="s-on">0 ONLINE</span></div>
+        <div class="si"><div class="dot dot-r"></div><span id="s-off">0 OFFLINE</span></div>
+        <div class="si" id="save-bar" style="font-family:var(--mono);font-size:10px;color:var(--green)">💾 SALVO</div>
       </div>
     </div>
 
-    <!-- Conteúdo -->
     <div id="content">
 
-      <!-- ====== SCREEN: DASHBOARD ====== -->
+      <!-- DASHBOARD -->
       <div class="screen active" id="screen-dashboard">
-
-        <div class="page-header">
-          <div class="page-title">
-            DASHBOARD
-            <small>MONITORAMENTO EM TEMPO REAL</small>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <span class="mono" style="font-size:10px;color:var(--text-dim)" id="last-update-label">—</span>
-            <button class="btn btn-ghost btn-sm" onclick="App.refreshDvrs()">⟳ ATUALIZAR</button>
+        <div class="ph">
+          <div class="pt">DASHBOARD<small>MONITORAMENTO EM TEMPO REAL</small></div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span style="font-family:var(--mono);font-size:10px;color:var(--td)" id="last-upd">—</span>
+            <button class="btn btn-ghost btn-sm" onclick="A.refresh()">⟳ ATUALIZAR</button>
           </div>
         </div>
-
-        <!-- Estatísticas -->
-        <div class="stats-grid">
-          <div class="stat-card cyan">
-            <div class="stat-label">Total DVRs</div>
-            <div class="stat-value" id="stat-total">0</div>
-            <div class="stat-sub">DISPOSITIVOS CADASTRADOS</div>
-            <div class="stat-icon">📡</div>
-          </div>
-          <div class="stat-card green">
-            <div class="stat-label">Online</div>
-            <div class="stat-value" id="stat-online">0</div>
-            <div class="stat-sub">CONECTADOS AGORA</div>
-            <div class="stat-icon">🟢</div>
-          </div>
-          <div class="stat-card red">
-            <div class="stat-label">Offline</div>
-            <div class="stat-value" id="stat-offline">0</div>
-            <div class="stat-sub">SEM RESPOSTA</div>
-            <div class="stat-icon">🔴</div>
-          </div>
-          <div class="stat-card amber">
-            <div class="stat-label">Câmeras</div>
-            <div class="stat-value" id="stat-cameras">0</div>
-            <div class="stat-sub">TOTAL DE CANAIS</div>
-            <div class="stat-icon">📹</div>
-          </div>
+        <div class="sg">
+          <div class="sc cy"><div class="sl">Total DVRs</div><div class="sv" id="st-total">0</div><div class="ss">CADASTRADOS</div><div class="si2">📡</div></div>
+          <div class="sc gr"><div class="sl">Online</div><div class="sv" id="st-on">0</div><div class="ss">CONECTADOS</div><div class="si2">🟢</div></div>
+          <div class="sc re"><div class="sl">Offline</div><div class="sv" id="st-off">0</div><div class="ss">SEM RESPOSTA</div><div class="si2">🔴</div></div>
+          <div class="sc am"><div class="sl">Câmeras</div><div class="sv" id="st-cam">0</div><div class="ss">TOTAL CANAIS</div><div class="si2">📹</div></div>
         </div>
-
-        <!-- Filtros -->
-        <div class="filter-bar">
-          <input type="text" class="form-input" id="filter-search"
-            placeholder="🔍  Buscar por nome ou cidade..."
-            oninput="App.applyFilters()" />
-          <select class="filter-select" id="filter-status" onchange="App.applyFilters()">
+        <div class="fb">
+          <input type="text" class="fi" id="fsearch" placeholder="🔍  Buscar por nome ou cidade..." oninput="A.filter()"/>
+          <select class="fsel" id="fstatus" onchange="A.filter()">
             <option value="">TODOS</option>
             <option value="online">🟢 ONLINE</option>
             <option value="offline">🔴 OFFLINE</option>
           </select>
-          <button class="btn btn-cyan btn-sm" onclick="App.testAllDvrs()">⚡ TESTAR TODOS</button>
+          <button class="btn btn-cyan btn-sm" onclick="A.testAll()">⚡ TESTAR TODOS</button>
         </div>
-
-        <!-- Tabela -->
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Nome / Local</th>
-                <th>Endereço</th>
-                <th>Câmeras</th>
-                <th>Status</th>
-                <th>Latência</th>
-                <th>Última Verificação</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody id="dvr-table-body">
-              <tr>
-                <td colspan="8">
-                  <div class="empty-state">
-                    <div class="empty-icon">📡</div>
-                    Carregando DVRs...
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
+        <div class="tw"><table>
+          <thead><tr><th>#</th><th>Nome / Local</th><th>Endereço</th><th>Câmeras</th><th>Status</th><th>Latência</th><th>Verificação</th><th>Ações</th></tr></thead>
+          <tbody id="dtbody"></tbody>
+        </table></div>
       </div>
-      <!-- /DASHBOARD -->
 
-      <!-- ====== SCREEN: CAMERAS ====== -->
+      <!-- CAMERAS -->
       <div class="screen" id="screen-cameras">
-        <div class="page-header">
-          <div class="page-title">
-            CÂMERAS
-            <small>VISUALIZAÇÃO EM GRADE</small>
-          </div>
-        </div>
-
-        <div class="cam-toolbar">
-          <span class="dvr-select-label">DVR:</span>
-          <select class="form-select" id="cam-dvr-select" style="max-width:240px;"
-            onchange="App.loadCameraGrid()">
+        <div class="ph"><div class="pt">CÂMERAS<small>VISUALIZAÇÃO EM GRADE</small></div></div>
+        <div class="ct">
+          <span style="font-family:var(--mono);font-size:11px;color:var(--td)">DVR:</span>
+          <select class="fs" id="cam-sel" style="max-width:240px" onchange="A.loadGrid()">
             <option value="">— Selecione um DVR —</option>
           </select>
-
-          <div class="grid-toggle">
-            <button class="grid-btn active" onclick="App.setGrid(1)"  title="1 câmera">▣</button>
-            <button class="grid-btn"        onclick="App.setGrid(4)"  title="4 câmeras">⊞</button>
-            <button class="grid-btn"        onclick="App.setGrid(9)"  title="9 câmeras">⊟</button>
-            <button class="grid-btn"        onclick="App.setGrid(16)" title="16 câmeras">⊠</button>
+          <div class="gt">
+            <button class="gb active" onclick="A.setGrid(1,this)" title="1">▣</button>
+            <button class="gb" onclick="A.setGrid(4,this)" title="4">⊞</button>
+            <button class="gb" onclick="A.setGrid(9,this)" title="9">⊟</button>
+            <button class="gb" onclick="A.setGrid(16,this)" title="16">⊠</button>
           </div>
         </div>
-
-        <div class="cam-grid g1" id="cam-grid">
-          <div class="cam-cell offline">
-            <div class="cam-offline-msg">
-              <div class="icon">📹</div>
-              <div class="msg">SELECIONE UM DVR</div>
-            </div>
-          </div>
+        <div class="cg g1" id="cam-grid">
+          <div class="cc offline"><div class="cam-off-msg"><div class="icon">📹</div><div class="msg">SELECIONE UM DVR</div></div></div>
         </div>
       </div>
-      <!-- /CAMERAS -->
 
-      <!-- ====== SCREEN: ADD/EDIT DVR ====== -->
+      <!-- ADD / EDIT DVR -->
       <div class="screen" id="screen-add-dvr">
-        <div class="page-header">
-          <div class="page-title" id="dvr-form-title">
-            NOVO DVR
-            <small>CADASTRAR DISPOSITIVO</small>
-          </div>
-          <button class="btn btn-ghost btn-sm" onclick="App.navigate('dashboard')">← VOLTAR</button>
+        <div class="ph">
+          <div class="pt" id="form-title">NOVO DVR<small>CADASTRAR DISPOSITIVO</small></div>
+          <button class="btn btn-ghost btn-sm" onclick="A.go('dashboard')">← VOLTAR</button>
         </div>
-
         <div class="panel">
-          <div class="panel-header">📡 INFORMAÇÕES DO DISPOSITIVO</div>
-
-          <input type="hidden" id="dvr-id" value="" />
-
-          <div class="form-grid">
-            <div class="form-group">
-              <label class="form-label">Nome do DVR *</label>
-              <input type="text" class="form-input" id="dvr-nome" placeholder="DVR Principal" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Cidade *</label>
-              <input type="text" class="form-input" id="dvr-cidade" placeholder="São Paulo" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Endereço IP *</label>
-              <input type="text" class="form-input" id="dvr-ip" placeholder="192.168.1.100" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Porta</label>
-              <input type="number" class="form-input" id="dvr-porta" value="37777" min="1" max="65535" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Usuário</label>
-              <input type="text" class="form-input" id="dvr-usuario" placeholder="admin" value="admin" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Senha</label>
-              <input type="password" class="form-input" id="dvr-senha" placeholder="••••••••" />
-            </div>
-            <div class="form-group full">
-              <label class="form-label">Quantidade de Câmeras</label>
-              <select class="form-select" id="dvr-cameras">
-                <option value="1">1 câmera</option>
-                <option value="2">2 câmeras</option>
-                <option value="4" selected>4 câmeras</option>
-                <option value="8">8 câmeras</option>
-                <option value="16">16 câmeras</option>
-                <option value="32">32 câmeras</option>
+          <div class="panel-hdr">📡 INFORMAÇÕES DO DISPOSITIVO</div>
+          <input type="hidden" id="did"/>
+          <div class="fg">
+            <div><label class="fl">Nome *</label><input type="text" class="fi" id="dnome" placeholder="DVR Principal"/></div>
+            <div><label class="fl">Cidade *</label><input type="text" class="fi" id="dcidade" placeholder="São Paulo"/></div>
+            <div><label class="fl">Endereço IP *</label><input type="text" class="fi" id="dip" placeholder="192.168.1.100"/></div>
+            <div><label class="fl">Porta</label><input type="number" class="fi" id="dporta" value="37777" min="1" max="65535"/></div>
+            <div><label class="fl">Usuário</label><input type="text" class="fi" id="dusuario" value="admin"/></div>
+            <div><label class="fl">Senha</label><input type="password" class="fi" id="dsenha" placeholder="••••••••"/></div>
+            <div class="full"><label class="fl">Quantidade de Câmeras</label>
+              <select class="fs" id="dcams">
+                <option value="1">1</option><option value="2">2</option>
+                <option value="4" selected>4</option><option value="8">8</option>
+                <option value="16">16</option><option value="32">32</option>
               </select>
             </div>
           </div>
-
-          <div class="form-actions">
-            <button class="btn btn-amber btn-sm" onclick="App.testDvrForm()">⚡ TESTAR CONEXÃO</button>
-            <button class="btn btn-ghost btn-sm" onclick="App.clearDvrForm()">✕ LIMPAR</button>
-            <button class="btn btn-success btn-sm" onclick="App.saveDvr()">✔ SALVAR DVR</button>
+          <div class="fa">
+            <button class="btn btn-amber btn-sm" onclick="A.testForm()">⚡ TESTAR CONEXÃO</button>
+            <button class="btn btn-ghost btn-sm" onclick="A.clearForm()">✕ LIMPAR</button>
+            <button class="btn btn-ok btn-sm" onclick="A.saveDvr()">✔ SALVAR DVR</button>
           </div>
         </div>
-
-        <!-- Resultado do teste de conexão -->
-        <div class="panel hidden" id="test-result-panel">
-          <div class="panel-header">⚡ RESULTADO DO TESTE DE CONECTIVIDADE</div>
-          <div class="test-result" id="test-result-content"></div>
-          <div class="rtsp-list" id="rtsp-list"></div>
+        <div class="panel hidden" id="test-panel">
+          <div class="panel-hdr">⚡ RESULTADO DO TESTE</div>
+          <div class="tr-panel" id="test-result"></div>
+          <div id="rtsp-list" style="margin-top:10px"></div>
         </div>
-
       </div>
-      <!-- /ADD-DVR -->
 
-      <!-- ====== SCREEN: LOGS ====== -->
+      <!-- LOGS -->
       <div class="screen" id="screen-logs">
-        <div class="page-header">
-          <div class="page-title">
-            LOGS DO SISTEMA
-            <small>HISTÓRICO DE CONEXÕES E EVENTOS</small>
-          </div>
+        <div class="ph">
+          <div class="pt">LOGS<small>HISTÓRICO DE EVENTOS</small></div>
           <div style="display:flex;gap:8px">
-            <button class="btn btn-ghost btn-sm" onclick="App.clearLogs()">🗑 LIMPAR</button>
-            <button class="btn btn-ghost btn-sm" onclick="App.exportLogs()">⬇ EXPORTAR</button>
+            <button class="btn btn-ghost btn-sm" onclick="A.clearLogs()">🗑 LIMPAR</button>
+            <button class="btn btn-ghost btn-sm" onclick="A.exportLogs()">⬇ EXPORTAR</button>
           </div>
         </div>
-
         <div class="panel">
-          <div class="panel-header">📋 EVENTOS REGISTRADOS</div>
-          <div class="log-container" id="log-container"></div>
+          <div class="panel-hdr">📋 EVENTOS</div>
+          <div class="lc" id="logc"></div>
         </div>
       </div>
-      <!-- /LOGS -->
 
     </div><!-- /content -->
   </div><!-- /main -->
 </div><!-- /app -->
 
-<!-- ================================================================
-     FULLSCREEN MODAL
-================================================================ -->
-<div id="fullscreen-modal" class="hidden">
-  <div class="fs-cam" id="fs-cam-container"></div>
-  <div class="fs-toolbar">
-    <span id="fs-title" class="mono" style="font-size:14px;color:var(--amber)">—</span>
+<!-- FULLSCREEN -->
+<div id="fs-modal" class="hidden">
+  <div class="fs-cam" id="fs-cont"></div>
+  <div class="fs-tb">
+    <span id="fs-title" style="font-family:var(--mono);font-size:14px;color:var(--amber)">—</span>
     <span id="fs-status"></span>
     <span style="flex:1"></span>
-    <button class="btn btn-ghost btn-sm" onclick="App.closeFullscreen()">✕ FECHAR</button>
+    <button class="btn btn-ghost btn-sm" onclick="A.closeFs()">✕ FECHAR</button>
   </div>
 </div>
 
-<!-- ================================================================
-     MODAL DVR ACTIONS
-================================================================ -->
-<div id="modal-dvr" class="modal-backdrop hidden">
-  <div class="modal">
-    <div class="modal-header">
-      <div class="modal-title" id="modal-dvr-title">DETALHES DO DVR</div>
-      <button class="modal-close" onclick="App.closeModal('modal-dvr')">✕</button>
-    </div>
-    <div id="modal-dvr-body"></div>
-  </div>
-</div>
+<div id="toasts"></div>
 
-<!-- Toast container -->
-<div id="toast-container"></div>
-
-<!-- ================================================================
-     JAVASCRIPT PRINCIPAL
-================================================================ -->
 <script>
-/* ================================================================
-   CONFIGURAÇÃO
-================================================================ */
-const CONFIG = {
-  // URL da API — troque para http://localhost:5000 quando o backend estiver rodando
-  API_BASE: 'http://localhost:5000/api',
-  // Modo demo (sem backend): true = usa dados simulados
-  DEMO_MODE: true,
-  POLL_INTERVAL: 10000, // 10s polling
+// ═══════════════════════════════════════════════════════════════
+//  STORAGE — usa localStorage para persistência total
+//  (funciona em qualquer navegador, sem backend)
+// ═══════════════════════════════════════════════════════════════
+const DB = {
+  KEY_DVRS: 'sentinel:dvrs',
+  KEY_LOGS: 'sentinel:logs',
+
+  load() {
+    try {
+      const raw = localStorage.getItem(this.KEY_DVRS);
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  },
+
+  save(dvrs) {
+    try {
+      localStorage.setItem(this.KEY_DVRS, JSON.stringify(dvrs));
+      return true;
+    } catch(e) {
+      console.error('Erro ao salvar DVRs:', e);
+      return false;
+    }
+  },
+
+  loadLogs() {
+    try {
+      const raw = localStorage.getItem(this.KEY_LOGS);
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  },
+
+  saveLogs(logs) {
+    try {
+      localStorage.setItem(this.KEY_LOGS, JSON.stringify(logs.slice(0, 300)));
+    } catch {}
+  },
+
+  clear() {
+    localStorage.removeItem(this.KEY_DVRS);
+    localStorage.removeItem(this.KEY_LOGS);
+  }
 };
 
-/* ================================================================
-   ESTADO GLOBAL
-================================================================ */
-const State = {
-  token: null,
-  user: null,
+// ═══════════════════════════════════════════════════════════════
+//  ESTADO GLOBAL
+// ═══════════════════════════════════════════════════════════════
+const S = {
   dvrs: [],
-  filteredDvrs: [],
   logs: [],
   gridSize: 1,
-  selectedDvr: null,
-  pollingTimer: null,
   camTimers: [],
+  polling: null,
 };
 
-/* ================================================================
-   DADOS DEMO (sem backend)
-================================================================ */
-const DEMO_DVRS = [
-  { id:1, nome:'DVR Centro',       cidade:'São Paulo',     ip:'192.168.1.100', porta:37777, usuario:'admin', senha:'admin', quantidadeCameras:4,  online:true,  latenciaMs:12,  ultimaVerificacao: new Date().toISOString() },
-  { id:2, nome:'DVR Estacionamento',cidade:'São Paulo',    ip:'192.168.1.101', porta:37777, usuario:'admin', senha:'',      quantidadeCameras:8,  online:true,  latenciaMs:24,  ultimaVerificacao: new Date().toISOString() },
-  { id:3, nome:'DVR Filial Norte',  cidade:'Campinas',     ip:'10.0.0.50',     porta:80,    usuario:'admin', senha:'',      quantidadeCameras:16, online:false, latenciaMs:null,ultimaVerificacao: new Date().toISOString() },
-  { id:4, nome:'DVR Depósito',      cidade:'Guarulhos',    ip:'172.16.0.20',   porta:554,   usuario:'root',  senha:'',      quantidadeCameras:4,  online:true,  latenciaMs:8,   ultimaVerificacao: new Date().toISOString() },
-  { id:5, nome:'DVR Portaria',      cidade:'São Paulo',    ip:'192.168.2.200', porta:37777, usuario:'admin', senha:'',      quantidadeCameras:2,  online:false, latenciaMs:null,ultimaVerificacao: new Date().toISOString() },
-];
+// ═══════════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════════
+const $  = id => document.getElementById(id);
+const ft = t => { try { return new Date(t).toLocaleTimeString('pt-BR'); } catch { return '—'; } };
+const lc = ms => !ms ? '' : ms < 20 ? 'g' : ms < 100 ? 'm' : 'b';
 
-/* ================================================================
-   UTILITÁRIOS
-================================================================ */
-const $ = id => document.getElementById(id);
-const qs = sel => document.querySelector(sel);
-
-function toast(msg, type = 'info') {
-  const c = $('toast-container');
+function toast(msg, t = 'i') {
+  const c = $('toasts');
   const el = document.createElement('div');
-  el.className = `toast ${type}`;
-  const icons = { success:'✔', error:'✕', info:'ℹ', warn:'⚠' };
-  el.innerHTML = `<span>${icons[type]||'•'}</span><span>${msg}</span>`;
+  el.className = `toast ${t}`;
+  el.innerHTML = `<span>${{s:'✔',e:'✕',i:'ℹ',w:'⚠'}[t]||'•'}</span><span>${msg}</span>`;
   c.appendChild(el);
-  setTimeout(() => { el.style.opacity='0'; el.style.transition='opacity 0.3s'; setTimeout(()=>el.remove(),300); }, 3500);
+  setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transition = 'opacity .3s';
+    setTimeout(() => el.remove(), 300);
+  }, 3500);
 }
 
-function formatTime(iso) {
-  if (!iso) return '—';
-  try {
-    const d = new Date(iso);
-    return d.toLocaleTimeString('pt-BR');
-  } catch { return '—'; }
+function setSaveBar(state) {
+  const el = $('save-bar');
+  if (state === 'saving') { el.textContent = '⟳ SALVANDO...'; el.style.color = 'var(--amber)'; }
+  else                    { el.textContent = '💾 SALVO';       el.style.color = 'var(--green)'; }
 }
 
-function latencyClass(ms) {
-  if (!ms) return '';
-  if (ms < 20) return 'good';
-  if (ms < 100) return 'mid';
-  return 'bad';
-}
-
-function maskPassword(p) { return p ? '●●●●' : '—'; }
-
-/* ================================================================
-   LOG ENGINE
-================================================================ */
-const Logger = {
+// ═══════════════════════════════════════════════════════════════
+//  LOGGER
+// ═══════════════════════════════════════════════════════════════
+const Log = {
   add(level, msg) {
-    const now = new Date();
-    const time = now.toLocaleTimeString('pt-BR');
-    const entry = { time, level, msg };
-    State.logs.unshift(entry);
-    if (State.logs.length > 500) State.logs.pop();
-    Logger.render();
+    const time = new Date().toLocaleTimeString('pt-BR');
+    S.logs.unshift({ time, level, msg });
+    if (S.logs.length > 300) S.logs.pop();
+    this.render();
+    DB.saveLogs(S.logs);
   },
   render() {
-    const c = $('log-container');
+    const c = $('logc');
     if (!c) return;
-    c.innerHTML = State.logs.slice(0,200).map(l => `
-      <div class="log-line">
-        <span class="log-time">${l.time}</span>
-        <span class="log-level ${l.level}">[${l.level.toUpperCase()}]</span>
-        <span class="log-msg">${l.msg}</span>
-      </div>`).join('');
+    c.innerHTML = S.logs.slice(0, 200).map(l =>
+      `<div class="ll">
+         <span class="lt">${l.time}</span>
+         <span class="lv ${l.level}">[${l.level.toUpperCase()}]</span>
+         <span class="lm">${l.msg}</span>
+       </div>`
+    ).join('');
   },
   info(m)  { this.add('info',  m); },
   ok(m)    { this.add('ok',    m); },
   warn(m)  { this.add('warn',  m); },
-  error(m) { this.add('error', m); const b=$('badge-logs'); if(b){b.style.display='inline';} },
+  error(m) { this.add('error', m); },
 };
 
-/* ================================================================
-   API CLIENT
-================================================================ */
-const API = {
-  async call(method, endpoint, body = null) {
-    if (CONFIG.DEMO_MODE) return API.demoHandler(method, endpoint, body);
-    try {
-      const opts = {
-        method,
-        headers: { 'Content-Type': 'application/json', ...(State.token ? {'Authorization':`Bearer ${State.token}`} : {}) },
-      };
-      if (body) opts.body = JSON.stringify(body);
-      const r = await fetch(CONFIG.API_BASE + endpoint, opts);
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      return await r.json();
-    } catch(e) {
-      Logger.error(`API ${method} ${endpoint} → ${e.message}`);
-      throw e;
-    }
-  },
-
-  /* ---- Handler de demonstração (sem backend) ---- */
-  async demoHandler(method, endpoint, body) {
-    await new Promise(r => setTimeout(r, 200 + Math.random()*300));
-
-    // Auth
-    if (endpoint === '/auth/login') {
-      if (body.username === 'admin' && body.password === 'admin123') {
-        return { token: 'DEMO_TOKEN', username: 'admin' };
-      }
-      throw new Error('Credenciais inválidas');
-    }
-
-    // DVRs list
-    if (method === 'GET' && endpoint === '/dvrs') {
-      return [...State.dvrs];
-    }
-
-    // Create DVR
-    if (method === 'POST' && endpoint === '/dvrs') {
-      const id = State.dvrs.length ? Math.max(...State.dvrs.map(d=>d.id))+1 : 1;
-      const dvr = { ...body, id, online: false, latenciaMs: null, ultimaVerificacao: new Date().toISOString() };
-      State.dvrs.push(dvr);
-      return dvr;
-    }
-
-    // Update DVR
-    if (method === 'PUT' && endpoint.startsWith('/dvrs/')) {
-      const id = parseInt(endpoint.split('/')[2]);
-      const idx = State.dvrs.findIndex(d => d.id === id);
-      if (idx >= 0) { State.dvrs[idx] = { ...State.dvrs[idx], ...body }; return State.dvrs[idx]; }
-      throw new Error('DVR não encontrado');
-    }
-
-    // Delete DVR
-    if (method === 'DELETE' && endpoint.startsWith('/dvrs/')) {
-      const id = parseInt(endpoint.split('/')[2]);
-      State.dvrs = State.dvrs.filter(d => d.id !== id);
-      return { ok: true };
-    }
-
-    // Test connectivity
-    if (endpoint.includes('/test')) {
-      const id = parseInt(endpoint.split('/')[2]);
-      const dvr = State.dvrs.find(d => d.id === id) || body;
-      const online = Math.random() > 0.25;
-      const lat = online ? Math.floor(Math.random()*80)+5 : null;
-      if (id) {
-        const idx = State.dvrs.findIndex(d => d.id === id);
-        if (idx >= 0) { State.dvrs[idx].online = online; State.dvrs[idx].latenciaMs = lat; }
-      }
-      return { online, latenciaMs: lat, ip: dvr?.ip || body?.ip, porta: dvr?.porta || body?.porta };
-    }
-
-    // Camera URLs
-    if (endpoint.includes('/cameras')) {
-      const id = parseInt(endpoint.split('/')[2]);
-      const dvr = State.dvrs.find(d => d.id === id);
-      if (!dvr) throw new Error('DVR não encontrado');
-      return Array.from({length: dvr.quantidadeCameras}, (_, i) => ({
-        canal: i+1,
-        nome: `Câmera ${i+1}`,
-        url: `rtsp://${dvr.usuario}:${dvr.senha||'***'}@${dvr.ip}:${dvr.porta}/cam/realmonitor?channel=${i+1}&subtype=0`,
-        online: dvr.online && Math.random() > 0.15,
-      }));
-    }
-
-    return null;
-  }
-};
-
-/* ================================================================
-   RELÓGIO
-================================================================ */
+// ═══════════════════════════════════════════════════════════════
+//  RELÓGIO
+// ═══════════════════════════════════════════════════════════════
 function startClock() {
-  const update = () => {
+  const tick = () => {
     const n = new Date();
-    const c = $('clock');
-    const d = $('date-display');
+    const c = $('clock'), d = $('datedisp');
     if (c) c.textContent = n.toLocaleTimeString('pt-BR');
-    if (d) d.textContent = n.toLocaleDateString('pt-BR', {weekday:'short', day:'2-digit', month:'short'}).toUpperCase();
+    if (d) d.textContent = n.toLocaleDateString('pt-BR',
+      { weekday:'short', day:'2-digit', month:'short' }).toUpperCase();
   };
-  update();
-  setInterval(update, 1000);
+  tick();
+  setInterval(tick, 1000);
 }
 
-/* ================================================================
-   APP PRINCIPAL
-================================================================ */
-const App = {
+// ═══════════════════════════════════════════════════════════════
+//  APP
+// ═══════════════════════════════════════════════════════════════
+const A = {
 
-  /* ---- Login ---- */
-  async login() {
-    const u = $('login-user').value.trim();
-    const p = $('login-pass').value;
-    if (!u || !p) { toast('Preencha usuário e senha', 'warn'); return; }
-
-    try {
-      const data = await API.call('POST', '/auth/login', { username: u, password: p });
-      State.token = data.token;
-      State.user  = data.username || u;
-      $('screen-login').style.display = 'none';
-      $('app').classList.remove('hidden');
-      $('user-name').textContent  = State.user;
-      $('user-avatar').textContent = State.user[0].toUpperCase();
-      Logger.ok(`Login realizado: ${State.user}`);
-      this.init();
-    } catch(e) {
-      $('login-error').style.display = 'block';
-      setTimeout(() => $('login-error').style.display = 'none', 3000);
+  // ── LOGIN ──────────────────────────────────────────────────
+  login() {
+    const u = $('lu').value.trim();
+    const p = $('lp').value;
+    if (!u || !p) { toast('Preencha usuário e senha', 'w'); return; }
+    if (u !== 'admin' || p !== 'admin123') {
+      $('lerr').style.display = 'block';
+      setTimeout(() => $('lerr').style.display = 'none', 3000);
+      return;
     }
+    $('uname').textContent  = u;
+    $('uavatar').textContent = u[0].toUpperCase();
+    $('screen-login').style.display = 'none';
+    $('app').classList.remove('hidden');
+    Log.ok(`Login realizado: ${u}`);
+    this.init();
   },
 
   logout() {
-    State.token = null;
-    State.user  = null;
-    clearInterval(State.pollingTimer);
+    clearInterval(S.polling);
     $('app').classList.add('hidden');
     $('screen-login').style.display = 'flex';
-    $('login-user').value = '';
-    $('login-pass').value = '';
-    Logger.info('Sessão encerrada');
-    toast('Sessão encerrada', 'info');
+    $('lu').value = ''; $('lp').value = '';
+    Log.info('Sessão encerrada');
+    toast('Sessão encerrada', 'i');
   },
 
-  /* ---- Inicialização ---- */
-  async init() {
+  // ── INICIALIZAÇÃO ──────────────────────────────────────────
+  init() {
     startClock();
-    // Carregar DVRs demo iniciais
-    if (CONFIG.DEMO_MODE && State.dvrs.length === 0) {
-      State.dvrs = JSON.parse(JSON.stringify(DEMO_DVRS));
-    }
-    await this.refreshDvrs();
-    this.startPolling();
-    this.updateApiStatus();
-    Logger.info('Sistema iniciado — monitoramento ativo');
-  },
-
-  /* ---- Polling automático ---- */
-  startPolling() {
-    clearInterval(State.pollingTimer);
-    State.pollingTimer = setInterval(() => {
-      this.pollDvrs();
-    }, CONFIG.POLL_INTERVAL);
-  },
-
-  async pollDvrs() {
-    // Simula variações aleatórias nos status (demo)
-    if (CONFIG.DEMO_MODE) {
-      State.dvrs.forEach(d => {
-        if (Math.random() < 0.1) {
-          d.online = !d.online;
-          d.latenciaMs = d.online ? Math.floor(Math.random()*60)+5 : null;
-          d.ultimaVerificacao = new Date().toISOString();
-          Logger.info(`${d.nome} → ${d.online ? 'ONLINE ✔' : 'OFFLINE ✖'}`);
-          if (!d.online) Logger.warn(`Conexão perdida: ${d.nome} (${d.ip}:${d.porta})`);
-        }
-      });
-    } else {
-      try {
-        const data = await API.call('GET', '/dvrs');
-        State.dvrs = data;
-      } catch {}
-    }
+    // Carrega dados persistidos do localStorage
+    S.dvrs = DB.load();
+    S.logs = DB.loadLogs();
+    Log.render();
+    Log.info(`Sistema iniciado — ${S.dvrs.length} DVR(s) carregado(s) do armazenamento local`);
     this.updateStats();
-    this.renderDvrTable();
-    $('last-update-label').textContent = 'ATUALIZADO: ' + new Date().toLocaleTimeString('pt-BR');
+    this.renderTable();
+    this.populateCamSel();
+    setSaveBar('saved');
+    this.startPolling();
   },
 
-  /* ---- Navegação ---- */
-  navigate(screen) {
+  // ── PERSISTÊNCIA ──────────────────────────────────────────
+  persist() {
+    setSaveBar('saving');
+    const ok = DB.save(S.dvrs);
+    setSaveBar('saved');
+    if (!ok) toast('Erro ao salvar dados', 'e');
+    return ok;
+  },
+
+  // ── POLLING (simulação de monitoramento a cada 10s) ────────
+  startPolling() {
+    clearInterval(S.polling);
+    S.polling = setInterval(() => this.pollStatus(), 10000);
+  },
+
+  pollStatus() {
+    let changed = false;
+    S.dvrs.forEach(d => {
+      // 8% de chance de mudar status a cada ciclo
+      if (Math.random() < 0.08) {
+        d.online = !d.online;
+        d.latenciaMs = d.online ? Math.floor(Math.random() * 60) + 5 : null;
+        d.ultimaVerificacao = new Date().toISOString();
+        Log[d.online ? 'ok' : 'warn'](
+          `${d.nome} → ${d.online ? 'ONLINE' : 'OFFLINE'} (${d.ip}:${d.porta})`
+        );
+        changed = true;
+      }
+    });
+    if (changed) this.persist();
+    this.updateStats();
+    this.renderTable();
+    $('last-upd').textContent = 'ATUALIZADO: ' + new Date().toLocaleTimeString('pt-BR');
+  },
+
+  refresh() {
+    this.pollStatus();
+    toast('Atualizado', 'i');
+  },
+
+  // ── NAVEGAÇÃO ──────────────────────────────────────────────
+  go(screen) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-
-    const target = $(`screen-${screen}`);
-    if (target) target.classList.add('active');
-
-    const navItem = document.querySelector(`[data-screen="${screen}"]`);
-    if (navItem) navItem.classList.add('active');
-
-    const labels = { dashboard:'DASHBOARD', cameras:'CÂMERAS', 'add-dvr':'NOVO DVR', logs:'LOGS' };
-    $('topbar-section').textContent = labels[screen] || screen.toUpperCase();
-
-    if (screen === 'cameras') this.populateCamDvrSelect();
-    if (screen === 'logs') { Logger.render(); $('badge-logs').style.display='none'; }
-    if (screen === 'dashboard') this.renderDvrTable();
+    const t = $(`screen-${screen}`);
+    if (t) t.classList.add('active');
+    const ni = document.querySelector(`[data-s="${screen}"]`);
+    if (ni) ni.classList.add('active');
+    const lbls = { dashboard:'DASHBOARD', cameras:'CÂMERAS', 'add-dvr':'NOVO DVR', logs:'LOGS' };
+    $('tsec').textContent = lbls[screen] || screen.toUpperCase();
+    if (screen === 'cameras') this.populateCamSel();
+    if (screen === 'logs')    Log.render();
+    if (screen === 'dashboard') this.renderTable();
   },
 
-  /* ---- Carrega / Atualiza DVRs ---- */
-  async refreshDvrs() {
-    try {
-      const data = await API.call('GET', '/dvrs');
-      State.dvrs = data;
-      Logger.info(`${data.length} DVR(s) carregado(s)`);
-    } catch(e) {
-      Logger.error(`Falha ao carregar DVRs: ${e.message}`);
-      toast('Erro ao carregar DVRs', 'error');
-    }
-    this.updateStats();
-    this.renderDvrTable();
-    this.populateCamDvrSelect();
-    $('last-update-label').textContent = 'ATUALIZADO: ' + new Date().toLocaleTimeString('pt-BR');
-  },
-
-  /* ---- Stats ---- */
+  // ── ESTATÍSTICAS ───────────────────────────────────────────
   updateStats() {
-    const total   = State.dvrs.length;
-    const online  = State.dvrs.filter(d => d.online).length;
-    const offline = total - online;
-    const cameras = State.dvrs.reduce((s, d) => s + (d.quantidadeCameras || 0), 0);
-
-    $('stat-total').textContent   = total;
-    $('stat-online').textContent  = online;
-    $('stat-offline').textContent = offline;
-    $('stat-cameras').textContent = cameras;
-
-    $('status-online-count').textContent  = `${online} ONLINE`;
-    $('status-offline-count').textContent = `${offline} OFFLINE`;
-    $('badge-online').textContent = online;
+    const total = S.dvrs.length;
+    const on    = S.dvrs.filter(d => d.online).length;
+    const off   = total - on;
+    const cams  = S.dvrs.reduce((s, d) => s + (d.quantidadeCameras || 0), 0);
+    $('st-total').textContent = total;
+    $('st-on').textContent    = on;
+    $('st-off').textContent   = off;
+    $('st-cam').textContent   = cams;
+    $('s-on').textContent     = `${on} ONLINE`;
+    $('s-off').textContent    = `${off} OFFLINE`;
+    $('badge-on').textContent = on;
   },
 
-  /* ---- Filtros ---- */
-  applyFilters() {
-    const search = $('filter-search').value.toLowerCase().trim();
-    const status = $('filter-status').value;
-    State.filteredDvrs = State.dvrs.filter(d => {
-      const matchSearch = !search || d.nome.toLowerCase().includes(search) || d.cidade.toLowerCase().includes(search);
-      const matchStatus = !status || (status === 'online' && d.online) || (status === 'offline' && !d.online);
-      return matchSearch && matchStatus;
+  // ── FILTROS ────────────────────────────────────────────────
+  filter() {
+    const q  = $('fsearch').value.toLowerCase();
+    const st = $('fstatus').value;
+    const list = S.dvrs.filter(d => {
+      const ms = !q  || d.nome.toLowerCase().includes(q) || d.cidade.toLowerCase().includes(q);
+      const ss = !st || (st === 'online' && d.online) || (st === 'offline' && !d.online);
+      return ms && ss;
     });
-    this.renderDvrTable(State.filteredDvrs);
+    this.renderTable(list);
   },
 
-  /* ---- Renderiza tabela ---- */
-  renderDvrTable(list) {
-    const dvrs = list !== undefined ? list : State.dvrs;
-    const tbody = $('dvr-table-body');
-
+  // ── TABELA DVRs ────────────────────────────────────────────
+  renderTable(list) {
+    const dvrs = list !== undefined ? list : S.dvrs;
+    const tb = $('dtbody');
     if (!dvrs.length) {
-      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📡</div>Nenhum DVR encontrado</div></td></tr>`;
+      tb.innerHTML = `<tr><td colspan="8">
+        <div class="empty-state">
+          <div class="empty-icon">📡</div>
+          ${S.dvrs.length === 0
+            ? 'Nenhum DVR cadastrado.<br>Clique em <strong>➕ Novo DVR</strong> para começar.'
+            : 'Nenhum DVR encontrado com esses filtros.'}
+        </div>
+      </td></tr>`;
       return;
     }
-
-    tbody.innerHTML = dvrs.map((d, i) => `
+    tb.innerHTML = dvrs.map(d => `
       <tr>
-        <td class="td-mono">${String(d.id).padStart(3,'0')}</td>
+        <td class="tm2">${String(d.id).padStart(3, '0')}</td>
         <td>
-          <div class="td-name">${d.nome}</div>
-          <div class="td-city" style="font-size:11px;margin-top:2px">📍 ${d.cidade}</div>
+          <div style="font-weight:600">${d.nome}</div>
+          <div style="font-size:11px;color:var(--tm);margin-top:2px">📍 ${d.cidade}</div>
         </td>
-        <td class="td-mono">${d.ip}<span style="color:var(--text-ghost)">:</span>${d.porta}</td>
-        <td class="td-mono">${d.quantidadeCameras} ch</td>
-        <td>
-          ${d.online
-            ? `<div class="tag-online">ONLINE</div>`
-            : `<div class="tag-offline">OFFLINE</div>`}
-        </td>
-        <td>
-          ${d.latenciaMs
-            ? `<span class="latency ${latencyClass(d.latenciaMs)}">${d.latenciaMs}ms</span>`
-            : `<span class="latency">—</span>`}
-        </td>
-        <td class="td-mono" style="font-size:11px">${formatTime(d.ultimaVerificacao)}</td>
-        <td>
-          <div class="action-group">
-            <button class="btn btn-cyan btn-sm"   onclick="App.testDvr(${d.id})"   title="Testar conexão">⚡</button>
-            <button class="btn btn-amber btn-sm"  onclick="App.viewCameras(${d.id})" title="Ver câmeras">📹</button>
-            <button class="btn btn-ghost btn-sm"  onclick="App.editDvr(${d.id})"    title="Editar">✎</button>
-            <button class="btn btn-danger btn-sm" onclick="App.deleteDvr(${d.id})"  title="Excluir">✕</button>
-          </div>
-        </td>
-      </tr>
-    `).join('');
+        <td class="tm2">${d.ip}<span style="color:var(--tg)">:</span>${d.porta}</td>
+        <td class="tm2">${d.quantidadeCameras} ch</td>
+        <td>${d.online ? '<div class="ton">ONLINE</div>' : '<div class="toff">OFFLINE</div>'}</td>
+        <td>${d.latenciaMs
+          ? `<span class="lat ${lc(d.latenciaMs)}">${d.latenciaMs}ms</span>`
+          : '<span class="lat">—</span>'}</td>
+        <td class="tm2" style="font-size:11px">${ft(d.ultimaVerificacao)}</td>
+        <td><div class="ag">
+          <button class="btn btn-cyan btn-sm"   onclick="A.testDvr(${d.id})"  title="Testar conexão">⚡</button>
+          <button class="btn btn-amber btn-sm"  onclick="A.viewCams(${d.id})" title="Ver câmeras">📹</button>
+          <button class="btn btn-ghost btn-sm"  onclick="A.editDvr(${d.id})"  title="Editar">✎</button>
+          <button class="btn btn-danger btn-sm" onclick="A.deleteDvr(${d.id})" title="Excluir">✕</button>
+        </div></td>
+      </tr>`).join('');
   },
 
-  /* ---- Testar DVR ---- */
+  // ── TESTAR DVR ─────────────────────────────────────────────
   async testDvr(id) {
-    const dvr = State.dvrs.find(d => d.id === id);
-    if (!dvr) return;
-    toast(`Testando ${dvr.nome}…`, 'info');
-    Logger.info(`Iniciando teste de conectividade: ${dvr.nome} (${dvr.ip}:${dvr.porta})`);
-    try {
-      const res = await API.call('POST', `/dvrs/${id}/test`);
-      dvr.online     = res.online;
-      dvr.latenciaMs = res.latenciaMs;
-      dvr.ultimaVerificacao = new Date().toISOString();
-      this.renderDvrTable();
-      this.updateStats();
-      if (res.online) {
-        toast(`${dvr.nome} — ONLINE (${res.latenciaMs}ms)`, 'success');
-        Logger.ok(`${dvr.nome} → ONLINE | Latência: ${res.latenciaMs}ms`);
-      } else {
-        toast(`${dvr.nome} — OFFLINE`, 'error');
-        Logger.error(`${dvr.nome} → OFFLINE | ${dvr.ip}:${dvr.porta} não responde`);
-      }
-    } catch(e) {
-      toast(`Erro ao testar ${dvr.nome}`, 'error');
-      Logger.error(`Falha no teste: ${dvr.nome} — ${e.message}`);
+    const d = S.dvrs.find(x => x.id === id);
+    if (!d) return;
+    toast(`Testando ${d.nome}…`, 'i');
+    Log.info(`Teste iniciado: ${d.nome} (${d.ip}:${d.porta})`);
+    await new Promise(r => setTimeout(r, 600 + Math.random() * 800));
+    const ok  = Math.random() > 0.25;
+    d.online  = ok;
+    d.latenciaMs = ok ? Math.floor(Math.random() * 80) + 5 : null;
+    d.ultimaVerificacao = new Date().toISOString();
+    this.persist();
+    this.updateStats();
+    this.renderTable();
+    if (ok) { toast(`${d.nome} — ONLINE (${d.latenciaMs}ms)`, 's'); Log.ok(`${d.nome} ONLINE — ${d.latenciaMs}ms`); }
+    else    { toast(`${d.nome} — OFFLINE`, 'e'); Log.warn(`${d.nome} OFFLINE — sem resposta em ${d.ip}:${d.porta}`); }
+  },
+
+  async testAll() {
+    toast('Testando todos os DVRs…', 'i');
+    Log.info('Teste em massa iniciado');
+    for (const d of S.dvrs) {
+      await this.testDvr(d.id);
+      await new Promise(r => setTimeout(r, 250));
     }
+    toast('Teste concluído', 's');
+    Log.ok('Teste em massa concluído');
   },
 
-  async testAllDvrs() {
-    toast('Testando todos os DVRs…', 'info');
-    Logger.info('Iniciando teste em massa de todos os DVRs');
-    for (const dvr of State.dvrs) {
-      await this.testDvr(dvr.id);
-      await new Promise(r => setTimeout(r, 300));
-    }
-    toast('Teste concluído', 'success');
-  },
+  // ── SALVAR DVR ─────────────────────────────────────────────
+  saveDvr() {
+    const id    = $('did').value;
+    const nome  = $('dnome').value.trim();
+    const cid   = $('dcidade').value.trim();
+    const ip    = $('dip').value.trim();
+    const porta = parseInt($('dporta').value) || 37777;
+    const user  = $('dusuario').value.trim() || 'admin';
+    const pass  = $('dsenha').value;
+    const qtd   = parseInt($('dcams').value) || 4;
 
-  /* ---- Testar DVR do formulário ---- */
-  async testDvrForm() {
-    const ip    = $('dvr-ip').value.trim();
-    const porta = parseInt($('dvr-porta').value) || 37777;
-    const user  = $('dvr-usuario').value.trim();
-    const pass  = $('dvr-senha').value;
-    const qtd   = parseInt($('dvr-cameras').value) || 4;
-
-    if (!ip) { toast('Informe o IP do DVR', 'warn'); return; }
-
-    toast('Testando conexão…', 'info');
-    Logger.info(`Testando conexão manual: ${ip}:${porta}`);
-
-    const panel  = $('test-result-panel');
-    const result = $('test-result-content');
-    const rtspList = $('rtsp-list');
-
-    panel.classList.remove('hidden');
-    result.innerHTML = `<div style="text-align:center"><span class="spinner"></span> Testando...</div>`;
-    rtspList.innerHTML = '';
-
-    try {
-      const id = $('dvr-id').value;
-      let res;
-      if (id) {
-        res = await API.call('POST', `/dvrs/${id}/test`);
-      } else {
-        await new Promise(r => setTimeout(r, 800 + Math.random()*600));
-        const online = Math.random() > 0.2;
-        res = { online, latenciaMs: online ? Math.floor(Math.random()*80)+5 : null, ip, porta };
-      }
-
-      result.innerHTML = `
-        <div class="test-row"><span class="test-key">Endereço:</span><span class="test-val">${ip}:${porta}</span></div>
-        <div class="test-row"><span class="test-key">Status:</span><span class="test-val ${res.online?'ok':'fail'}">${res.online ? '🟢 ONLINE' : '🔴 OFFLINE'}</span></div>
-        <div class="test-row"><span class="test-key">Latência:</span><span class="test-val ${latencyClass(res.latenciaMs)}">${res.latenciaMs ? res.latenciaMs+'ms' : '—'}</span></div>
-        <div class="test-row"><span class="test-key">Ping TCP:</span><span class="test-val ${res.online?'ok':'fail'}">${res.online ? 'RESPONDENDO' : 'SEM RESPOSTA'}</span></div>
-        <div class="test-row"><span class="test-key">Protocolo RTSP:</span><span class="test-val">${porta === 554 ? 'Porta 554 (RTSP padrão)' : `Porta ${porta} (Dahua)`}</span></div>
-      `;
-
-      if (res.online) {
-        Logger.ok(`Conexão OK: ${ip}:${porta} — ${res.latenciaMs}ms`);
-
-        // Gera URLs RTSP
-        rtspList.innerHTML = `
-          <div style="margin-top:14px;font-family:var(--font-mono);font-size:10px;color:var(--text-dim);letter-spacing:2px;margin-bottom:8px">URLS RTSP GERADAS</div>
-          ${Array.from({length: Math.min(qtd, 4)}, (_, i) => `
-            <div class="rtsp-item">
-              <span class="rtsp-url">rtsp://${user}:${pass||'***'}@${ip}:${porta}/cam/realmonitor?channel=${i+1}&amp;subtype=0</span>
-              <button class="rtsp-copy" onclick="navigator.clipboard.writeText('rtsp://${user}:${pass||''}@${ip}:${porta}/cam/realmonitor?channel=${i+1}&subtype=0');toast('URL copiada!','success')" title="Copiar URL">⎘</button>
-            </div>
-          `).join('')}
-          ${qtd > 4 ? `<div style="font-family:var(--font-mono);font-size:10px;color:var(--text-dim);padding:6px 0">...e mais ${qtd-4} câmera(s)</div>` : ''}
-        `;
-        toast('DVR respondeu com sucesso!', 'success');
-      } else {
-        Logger.warn(`Sem resposta: ${ip}:${porta}`);
-        toast('DVR não respondeu', 'error');
-      }
-    } catch(e) {
-      result.innerHTML = `<div class="test-row"><span class="test-val fail">Erro: ${e.message}</span></div>`;
-      Logger.error(`Erro no teste manual: ${e.message}`);
-    }
-  },
-
-  /* ---- Editar DVR ---- */
-  editDvr(id) {
-    const dvr = State.dvrs.find(d => d.id === id);
-    if (!dvr) return;
-    $('dvr-id').value       = dvr.id;
-    $('dvr-nome').value     = dvr.nome;
-    $('dvr-cidade').value   = dvr.cidade;
-    $('dvr-ip').value       = dvr.ip;
-    $('dvr-porta').value    = dvr.porta;
-    $('dvr-usuario').value  = dvr.usuario;
-    $('dvr-senha').value    = dvr.senha || '';
-    $('dvr-cameras').value  = dvr.quantidadeCameras;
-    $('dvr-form-title').innerHTML = `EDITAR DVR <small>ID #${dvr.id}</small>`;
-    $('test-result-panel').classList.add('hidden');
-    this.navigate('add-dvr');
-  },
-
-  /* ---- Salvar DVR ---- */
-  async saveDvr() {
-    const id      = $('dvr-id').value;
-    const nome    = $('dvr-nome').value.trim();
-    const cidade  = $('dvr-cidade').value.trim();
-    const ip      = $('dvr-ip').value.trim();
-    const porta   = parseInt($('dvr-porta').value) || 37777;
-    const usuario = $('dvr-usuario').value.trim();
-    const senha   = $('dvr-senha').value;
-    const qtd     = parseInt($('dvr-cameras').value) || 4;
-
-    if (!nome || !cidade || !ip) {
-      toast('Preencha todos os campos obrigatórios', 'warn');
+    if (!nome || !cid || !ip) {
+      toast('Preencha Nome, Cidade e IP', 'w');
       return;
     }
 
-    const payload = { nome, cidade, ip, porta, usuario, senha, quantidadeCameras: qtd };
-
-    try {
-      if (id) {
-        await API.call('PUT', `/dvrs/${id}`, payload);
-        Logger.ok(`DVR atualizado: ${nome} (ID ${id})`);
-        toast(`DVR "${nome}" atualizado!`, 'success');
-      } else {
-        const created = await API.call('POST', '/dvrs', payload);
-        Logger.ok(`DVR cadastrado: ${nome} (ID ${created.id})`);
-        toast(`DVR "${nome}" cadastrado!`, 'success');
+    if (id) {
+      // Edição
+      const idx = S.dvrs.findIndex(d => d.id == id);
+      if (idx >= 0) {
+        S.dvrs[idx] = {
+          ...S.dvrs[idx],
+          nome, cidade: cid, ip, porta,
+          usuario: user, senha: pass,
+          quantidadeCameras: qtd,
+        };
+        Log.ok(`DVR atualizado: ${nome} (ID ${id})`);
+        toast(`"${nome}" atualizado!`, 's');
       }
-      await this.refreshDvrs();
-      this.clearDvrForm();
-      this.navigate('dashboard');
-    } catch(e) {
-      toast(`Erro ao salvar: ${e.message}`, 'error');
-      Logger.error(`Erro ao salvar DVR: ${e.message}`);
+    } else {
+      // Novo
+      const newId = S.dvrs.length ? Math.max(...S.dvrs.map(d => d.id)) + 1 : 1;
+      S.dvrs.push({
+        id: newId, nome, cidade: cid, ip, porta,
+        usuario: user, senha: pass,
+        quantidadeCameras: qtd,
+        online: false, latenciaMs: null,
+        ultimaVerificacao: new Date().toISOString(),
+      });
+      Log.ok(`DVR cadastrado: ${nome} (ID ${newId})`);
+      toast(`"${nome}" cadastrado e salvo!`, 's');
+    }
+
+    this.persist();
+    this.updateStats();
+    this.renderTable();
+    this.populateCamSel();
+    this.clearForm();
+    this.go('dashboard');
+  },
+
+  // ── EDITAR DVR ─────────────────────────────────────────────
+  editDvr(id) {
+    const d = S.dvrs.find(x => x.id === id);
+    if (!d) return;
+    $('did').value      = d.id;
+    $('dnome').value    = d.nome;
+    $('dcidade').value  = d.cidade;
+    $('dip').value      = d.ip;
+    $('dporta').value   = d.porta;
+    $('dusuario').value = d.usuario || 'admin';
+    $('dsenha').value   = d.senha || '';
+    $('dcams').value    = d.quantidadeCameras;
+    $('form-title').innerHTML = `EDITAR DVR<small>ID #${d.id}</small>`;
+    $('test-panel').classList.add('hidden');
+    this.go('add-dvr');
+  },
+
+  // ── DELETAR DVR ────────────────────────────────────────────
+  deleteDvr(id) {
+    const d = S.dvrs.find(x => x.id === id);
+    if (!d) return;
+    if (!confirm(`Excluir o DVR "${d.nome}"?\n\nEsta ação não pode ser desfeita.`)) return;
+    S.dvrs = S.dvrs.filter(x => x.id !== id);
+    this.persist();
+    this.updateStats();
+    this.renderTable();
+    this.populateCamSel();
+    Log.warn(`DVR removido: ${d.nome} (ID ${id})`);
+    toast(`"${d.nome}" removido`, 'w');
+  },
+
+  // ── LIMPAR FORMULÁRIO ──────────────────────────────────────
+  clearForm() {
+    $('did').value = '';
+    $('dnome').value = ''; $('dcidade').value = '';
+    $('dip').value = ''; $('dsenha').value = '';
+    $('dporta').value = '37777';
+    $('dusuario').value = 'admin';
+    $('dcams').value = '4';
+    $('form-title').innerHTML = 'NOVO DVR<small>CADASTRAR DISPOSITIVO</small>';
+    $('test-panel').classList.add('hidden');
+  },
+
+  // ── TESTAR CONEXÃO NO FORM ────────────────────────────────
+  async testForm() {
+    const ip   = $('dip').value.trim();
+    const porta = parseInt($('dporta').value) || 37777;
+    const user = $('dusuario').value.trim() || 'admin';
+    const pass = $('dsenha').value;
+    const qtd  = parseInt($('dcams').value) || 4;
+
+    if (!ip) { toast('Informe o IP do DVR', 'w'); return; }
+
+    $('test-panel').classList.remove('hidden');
+    $('test-result').innerHTML = `<div style="text-align:center"><span class="spinner"></span> Testando ${ip}:${porta}...</div>`;
+    $('rtsp-list').innerHTML = '';
+    Log.info(`Teste manual: ${ip}:${porta}`);
+
+    await new Promise(r => setTimeout(r, 700 + Math.random() * 800));
+
+    const ok  = Math.random() > 0.2;
+    const lat = ok ? Math.floor(Math.random() * 80) + 5 : null;
+
+    $('test-result').innerHTML = `
+      <div class="tr-row"><span class="tr-k">Endereço:</span><span class="tr-v">${ip}:${porta}</span></div>
+      <div class="tr-row"><span class="tr-k">Status:</span><span class="tr-v ${ok?'ok':'fail'}">${ok ? '🟢 ONLINE' : '🔴 OFFLINE'}</span></div>
+      <div class="tr-row"><span class="tr-k">Latência TCP:</span><span class="tr-v ${lc(lat)}">${lat ? lat+'ms' : '—'}</span></div>
+      <div class="tr-row"><span class="tr-k">Porta ${porta}:</span><span class="tr-v ${ok?'ok':'fail'}">${ok ? 'RESPONDENDO' : 'SEM RESPOSTA'}</span></div>
+    `;
+
+    if (ok) {
+      const urls = Array.from({ length: Math.min(qtd, 4) }, (_, i) =>
+        `rtsp://${user}:${pass||'***'}@${ip}:${porta}/cam/realmonitor?channel=${i+1}&subtype=0`
+      );
+      $('rtsp-list').innerHTML = `
+        <div style="margin:12px 0 8px;font-family:var(--mono);font-size:10px;color:var(--td);letter-spacing:2px">URLS RTSP GERADAS</div>
+        ${urls.map(u => `
+          <div class="rtsp-item">
+            <span class="rtsp-url">${u}</span>
+            <button class="rtsp-cp" onclick="navigator.clipboard.writeText('${u}');toast('URL copiada!','s')" title="Copiar">⎘</button>
+          </div>`).join('')}
+        ${qtd > 4 ? `<div style="font-family:var(--mono);font-size:10px;color:var(--td);padding:4px 0">...e mais ${qtd-4} câmera(s)</div>` : ''}
+      `;
+      Log.ok(`Teste OK: ${ip}:${porta} — ${lat}ms`);
+      toast('DVR respondeu com sucesso!', 's');
+    } else {
+      Log.warn(`Sem resposta: ${ip}:${porta}`);
+      toast('DVR não respondeu', 'e');
     }
   },
 
-  /* ---- Deletar DVR ---- */
-  async deleteDvr(id) {
-    const dvr = State.dvrs.find(d => d.id === id);
-    if (!dvr) return;
-    if (!confirm(`Excluir DVR "${dvr.nome}"?`)) return;
-    try {
-      await API.call('DELETE', `/dvrs/${id}`);
-      Logger.warn(`DVR removido: ${dvr.nome} (ID ${id})`);
-      toast(`DVR "${dvr.nome}" removido`, 'warn');
-      await this.refreshDvrs();
-    } catch(e) {
-      toast('Erro ao excluir', 'error');
-    }
-  },
-
-  /* ---- Limpar formulário ---- */
-  clearDvrForm() {
-    $('dvr-id').value = '';
-    ['dvr-nome','dvr-cidade','dvr-ip','dvr-senha'].forEach(id => $(id).value = '');
-    $('dvr-porta').value   = '37777';
-    $('dvr-usuario').value = 'admin';
-    $('dvr-cameras').value = '4';
-    $('dvr-form-title').innerHTML = 'NOVO DVR <small>CADASTRAR DISPOSITIVO</small>';
-    $('test-result-panel').classList.add('hidden');
-  },
-
-  /* ---- Câmeras ---- */
-  populateCamDvrSelect() {
-    const sel = $('cam-dvr-select');
-    const current = sel.value;
+  // ── CÂMERAS ────────────────────────────────────────────────
+  populateCamSel() {
+    const sel = $('cam-sel');
+    const cur = sel.value;
     sel.innerHTML = '<option value="">— Selecione um DVR —</option>' +
-      State.dvrs.map(d => `<option value="${d.id}" ${!d.online?'style="color:var(--red)"':''}>${d.nome} — ${d.cidade} ${d.online ? '🟢' : '🔴'}</option>`).join('');
-    if (current) sel.value = current;
+      S.dvrs.map(d =>
+        `<option value="${d.id}">${d.nome} — ${d.cidade} ${d.online ? '🟢' : '🔴'}</option>`
+      ).join('');
+    if (cur) sel.value = cur;
   },
 
-  viewCameras(id) {
-    this.navigate('cameras');
-    $('cam-dvr-select').value = id;
-    this.loadCameraGrid();
+  viewCams(id) {
+    this.go('cameras');
+    $('cam-sel').value = id;
+    this.loadGrid();
   },
 
-  async loadCameraGrid() {
-    const id = parseInt($('cam-dvr-select').value);
+  loadGrid() {
+    const id   = parseInt($('cam-sel').value);
     const grid = $('cam-grid');
 
     if (!id) {
-      grid.innerHTML = `<div class="cam-cell offline"><div class="cam-offline-msg"><div class="icon">📹</div><div class="msg">SELECIONE UM DVR</div></div></div>`;
+      grid.innerHTML = `<div class="cc offline"><div class="cam-off-msg"><div class="icon">📹</div><div class="msg">SELECIONE UM DVR</div></div></div>`;
       return;
     }
 
-    const dvr = State.dvrs.find(d => d.id === id);
+    const dvr = S.dvrs.find(d => d.id === id);
     if (!dvr) return;
 
-    State.selectedDvr = dvr;
+    const n    = S.gridSize;
+    const cams = Array.from({ length: n }, (_, i) => ({
+      canal: i + 1,
+      nome:  `Câmera ${i + 1}`,
+      online: dvr.online && Math.random() > 0.1,
+    }));
 
-    try {
-      const cameras = await API.call('GET', `/dvrs/${id}/cameras`);
-      this.renderCameraGrid(cameras, dvr);
-    } catch(e) {
-      Logger.error(`Erro ao carregar câmeras: ${e.message}`);
-      toast('Erro ao carregar câmeras', 'error');
-    }
-  },
+    S.camTimers.forEach(clearInterval);
+    S.camTimers = [];
 
-  renderCameraGrid(cameras, dvr) {
-    const grid = $('cam-grid');
-    const n = State.gridSize;
-
-    // Limita ao tamanho do grid
-    const slice = cameras.slice(0, n);
-    // Preenche com células vazias se necessário
-    while (slice.length < n) {
-      slice.push({ canal: slice.length+1, nome: `Câmera ${slice.length+1}`, online: false, empty: true });
-    }
-
-    grid.innerHTML = slice.map((cam, i) => `
-      <div class="cam-cell ${cam.online ? '' : 'offline'}"
-           onclick="App.openFullscreen(${cam.canal}, '${cam.nome}', ${cam.online}, ${dvr.id})"
-           id="cam-cell-${cam.canal}">
-        ${cam.online ? `
-          <div class="cam-feed">
-            ${i % 3 === 0 ? `<div class="cam-silhouette" style="animation-delay:${i*1.3}s"></div>` : ''}
-            ${i % 2 === 0 ? `<div class="cam-crosshair" style="left:${30+i*10}%;top:${20+i*8}%;animation-delay:${i*0.5}s"></div>` : ''}
-          </div>
-        ` : `
-          <div class="cam-offline-msg">
+    grid.innerHTML = cams.map((c, i) => `
+      <div class="cc ${c.online ? '' : 'offline'}"
+           onclick="A.openFs(${c.canal}, '${c.nome}', ${c.online}, ${dvr.id})"
+           id="cc-${c.canal}">
+        ${c.online ? `
+          <div class="cf">
+            ${i % 3 === 0 ? `<div class="cam-sil" style="animation-delay:${i*1.3}s"></div>` : ''}
+            ${i % 2 === 0 ? `<div class="cam-cross" style="left:${30+i*8}%;top:${20+i*7}%;animation-delay:${i*0.5}s"></div>` : ''}
+          </div>` : `
+          <div class="cam-off-msg">
             <div class="icon">⚠</div>
             <div class="msg">SEM SINAL</div>
+          </div>`}
+        <div class="co">
+          <div class="ctop">
+            <span class="cname">${c.nome.toUpperCase()}</span>
+            ${c.online ? '<span class="crec">REC</span>' : ''}
           </div>
-        `}
-        <div class="cam-overlay">
-          <div class="cam-top">
-            <span class="cam-name">${cam.nome.toUpperCase()}</span>
-            ${cam.online ? '<span class="cam-rec">REC</span>' : ''}
-          </div>
-          <div class="cam-bottom">
-            <span class="cam-time" id="cam-time-${cam.canal}">--:--:--</span>
-            <span class="cam-ch">CH${String(cam.canal).padStart(2,'0')}</span>
+          <div class="cbot">
+            <span class="ctime" id="ct-${c.canal}">--:--:--</span>
+            <span class="cch">CH${String(c.canal).padStart(2,'0')}</span>
           </div>
         </div>
-      </div>
-    `).join('');
+      </div>`).join('');
 
-    // Atualiza relógio nas câmeras
-    State.camTimers.forEach(clearInterval);
-    State.camTimers = [];
-    slice.forEach(cam => {
-      if (cam.online) {
+    cams.forEach(c => {
+      if (c.online) {
         const t = setInterval(() => {
-          const el = $(`cam-time-${cam.canal}`);
+          const el = $(`ct-${c.canal}`);
           if (el) el.textContent = new Date().toLocaleTimeString('pt-BR');
+          else clearInterval(t);
         }, 1000);
-        State.camTimers.push(t);
+        S.camTimers.push(t);
       }
     });
   },
 
-  setGrid(n) {
-    State.gridSize = n;
-    const grid = $('cam-grid');
-    grid.className = 'cam-grid g' + n;
-    document.querySelectorAll('.grid-btn').forEach(b => b.classList.remove('active'));
-    event.target.classList.add('active');
-
-    // Re-renderiza se há DVR selecionado
-    if ($('cam-dvr-select').value) this.loadCameraGrid();
+  setGrid(n, btn) {
+    S.gridSize = n;
+    $('cam-grid').className = `cg g${n}`;
+    document.querySelectorAll('.gb').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    if ($('cam-sel').value) this.loadGrid();
   },
 
-  /* ---- Fullscreen ---- */
-  async openFullscreen(canal, nome, online, dvrId) {
-    const dvr = State.dvrs.find(d => d.id === dvrId);
-    const modal = $('fullscreen-modal');
-    const container = $('fs-cam-container');
-    const title = $('fs-title');
-    const status = $('fs-status');
+  // ── FULLSCREEN ─────────────────────────────────────────────
+  openFs(canal, nome, online, dvrId) {
+    const dvr = S.dvrs.find(d => d.id === dvrId);
+    $('fs-title').textContent = `${dvr?.nome || '—'} — ${nome.toUpperCase()} / CH${String(canal).padStart(2,'0')}`;
+    $('fs-status').innerHTML  = online
+      ? '<div class="ton">ONLINE</div>'
+      : '<div class="toff">OFFLINE</div>';
 
-    title.textContent = `${dvr?.nome || '—'} — ${nome.toUpperCase()} / CH${String(canal).padStart(2,'0')}`;
-    status.innerHTML = online
-      ? '<span class="tag-online">ONLINE</span>'
-      : '<span class="tag-offline">OFFLINE</span>';
-
-    container.innerHTML = online ? `
-      <div class="cam-feed" style="position:absolute;inset:0">
-        <div class="cam-silhouette" style="height:80px;animation-duration:10s"></div>
-        <div class="cam-crosshair" style="width:50px;height:50px;left:45%;top:35%"></div>
+    $('fs-cont').innerHTML = online ? `
+      <div class="cf" style="position:absolute;inset:0">
+        <div class="cam-sil" style="height:80px;animation-duration:10s"></div>
+        <div class="cam-cross" style="width:50px;height:50px;left:45%;top:35%"></div>
       </div>
-      <div class="cam-overlay">
-        <div class="cam-top">
-          <span class="cam-name" style="font-size:14px">${nome.toUpperCase()}</span>
-          <span class="cam-rec" style="font-size:12px">REC</span>
+      <div class="co">
+        <div class="ctop">
+          <span class="cname" style="font-size:14px">${nome.toUpperCase()}</span>
+          <span class="crec" style="font-size:12px">REC</span>
         </div>
-        <div class="cam-bottom">
-          <span class="cam-time" id="fs-cam-time" style="font-size:12px">--:--:--</span>
-          <span class="cam-ch" style="font-size:12px">CH${String(canal).padStart(2,'0')}</span>
+        <div class="cbot">
+          <span class="ctime" id="fs-time" style="font-size:12px">--:--:--</span>
+          <span class="cch" style="font-size:12px">CH${String(canal).padStart(2,'0')}</span>
         </div>
-      </div>
-    ` : `
-      <div class="cam-offline-msg" style="z-index:2">
+      </div>` : `
+      <div class="cam-off-msg" style="z-index:2;text-align:center">
         <div class="icon" style="font-size:48px">⚠</div>
         <div class="msg" style="font-size:14px">CÂMERA OFFLINE — SEM SINAL</div>
-        ${dvr ? `<div style="margin-top:8px;color:var(--text-ghost);font-size:11px">
+        ${dvr ? `<div style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--tg)">
           rtsp://${dvr.usuario}:***@${dvr.ip}:${dvr.porta}/cam/realmonitor?channel=${canal}&subtype=0
         </div>` : ''}
-      </div>
-    `;
+      </div>`;
 
-    modal.classList.remove('hidden');
+    $('fs-modal').classList.remove('hidden');
 
     if (online) {
       const t = setInterval(() => {
-        const el = $('fs-cam-time');
+        const el = $('fs-time');
         if (el) el.textContent = new Date().toLocaleTimeString('pt-BR');
         else clearInterval(t);
       }, 1000);
     }
 
-    // Fecha com ESC
-    const escHandler = e => {
-      if (e.key === 'Escape') { this.closeFullscreen(); document.removeEventListener('keydown', escHandler); }
+    const esc = e => {
+      if (e.key === 'Escape') {
+        this.closeFs();
+        document.removeEventListener('keydown', esc);
+      }
     };
-    document.addEventListener('keydown', escHandler);
+    document.addEventListener('keydown', esc);
   },
 
-  closeFullscreen() {
-    $('fullscreen-modal').classList.add('hidden');
+  closeFs() {
+    $('fs-modal').classList.add('hidden');
   },
 
-  /* ---- Logs ---- */
+  // ── LOGS ───────────────────────────────────────────────────
   clearLogs() {
-    State.logs = [];
-    Logger.render();
-    toast('Logs limpos', 'info');
+    if (!confirm('Limpar todos os logs?')) return;
+    S.logs = [];
+    Log.render();
+    DB.saveLogs([]);
+    toast('Logs limpos', 'i');
   },
 
   exportLogs() {
-    const content = State.logs.map(l => `[${l.time}] [${l.level.toUpperCase()}] ${l.msg}`).join('\n');
+    const content = S.logs
+      .map(l => `[${l.time}] [${l.level.toUpperCase()}] ${l.msg}`)
+      .join('\n');
     const blob = new Blob([content], { type: 'text/plain' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `sentinel-logs-${new Date().toISOString().slice(0,10)}.txt`;
     a.click();
-    toast('Logs exportados', 'success');
-  },
-
-  /* ---- Modal ---- */
-  closeModal(id) { $(id).classList.add('hidden'); },
-
-  /* ---- Status API ---- */
-  updateApiStatus() {
-    const label = $('api-status-label');
-    const dot   = $('dot-api');
-    if (CONFIG.DEMO_MODE) {
-      label.textContent = 'DEMO MODE';
-      dot.className = 'dot dot-amber';
-    } else {
-      label.textContent = 'API LIVE';
-      dot.className = 'dot dot-green';
-    }
+    toast('Logs exportados', 's');
   },
 };
 
-/* ================================================================
-   INIT (Enter no login)
-================================================================ */
+// ── ENTER no login ───────────────────────────────────────────
 document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && $('screen-login').style.display !== 'none') App.login();
+  if (e.key === 'Enter' && $('screen-login').style.display !== 'none') A.login();
 });
 
-// Inicializa com demo mode ativo
-Logger.info('SENTINEL CFTV — Sistema inicializado');
-Logger.info(`Modo: ${CONFIG.DEMO_MODE ? 'DEMONSTRAÇÃO' : 'PRODUÇÃO'}`);
-Logger.info(`API: ${CONFIG.API_BASE}`);
-Logger.info('Aguardando autenticação...');
+// ── Boot ─────────────────────────────────────────────────────
+Log.info('SENTINEL CFTV — Sistema inicializado');
+Log.info('Armazenamento: localStorage (persistente)');
 </script>
-
 </body>
 </html>
